@@ -71,6 +71,17 @@ GET /v1/user/{user_company_id}/notification-filter-failure
 
 > Use your `UserCompany.id` — this returns failures for all provisioned users.
 
+Each failure record includes:
+
+| Field | Type | Description |
+|---|---|---|
+| `user_id` | integer | ID of the user whose notification filter failed |
+| `user_requested_id` | integer \| null | ID of the requesting user when the filter was created via an API key; `null` for direct user filters |
+| `category` | string | Notification category (e.g. `MUTATION`) |
+| `event_type` | string | Notification event type |
+| `object_id` | integer | ID of the object that triggered the notification |
+| `notification_target` | string | The webhook URL that failed |
+
 ### Retry failures
 
 ```http

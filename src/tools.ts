@@ -218,7 +218,9 @@ export const TOOLS = [
     name: "list_notification_failures",
     description:
       "Lists failed webhook deliveries for the partner's company user. The userId should be " +
-      "the UserCompany.id — this returns failures for all underlying provisioned users.",
+      "the UserCompany.id — this returns failures for all underlying provisioned users. " +
+      "Each record includes user_id (which provisioned user the failure belongs to) and " +
+      "user_requested_id (set when the filter was created via an API key, otherwise null).",
     inputSchema: {
       type: "object",
       properties: {
