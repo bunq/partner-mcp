@@ -2,6 +2,8 @@
 
 These calls are made using the **provisioned user's session token**, not the partner's session token.
 
+> **Note:** Fulfillment endpoints do not require a fixed or unmasked IP address. Requests from server-side integrations behind a VPN, proxy, or corporate NAT are accepted regardless of IP geolocation.
+
 ## Set main address
 
 ```http
