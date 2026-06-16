@@ -13,6 +13,7 @@ POST /v1/session-server
 ```
 
 **Response:**
+
 ```json
 {
   "Response": [
@@ -39,13 +40,14 @@ POST /v1/session-server
 ```
 
 Save:
-- `Token.token` — session token for all subsequent calls on behalf of this user
-- `UserApiKey.id` — used as `user_id` in onboarding webhook subscriptions and identity verification submission
-- `UserApiKey.granted_by_user.UserPerson.id` — the provisioned user's actual user ID
+
+* `Token.token` — session token for all subsequent calls on behalf of this user
+* `UserApiKey.id` — used as `user_id` in onboarding webhook subscriptions and identity verification submission
+* `UserApiKey.granted_by_user.UserPerson.id` — the provisioned user's actual user ID
 
 ## ⚠️ This must happen before the credential expires
 
-- **Sandbox:** within 1 hour of the token being issued
-- **Production:** within 4 hours
+* **Sandbox:** within 1 hour of the token being issued
+* **Production:** within 4 hours
 
-If you miss the window, use [Refresh Credential](../chapter-2-provision/refreshing-credential.md) to get a new token.
+If you miss the window, use [Refresh Credential](../chapter-2-creating-a-user-provision/refreshing-credential.md) to get a new token.

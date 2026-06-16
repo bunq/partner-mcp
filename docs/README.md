@@ -1,34 +1,38 @@
-# bunq Partner API
+# Partner Onboarding
 
-## Overview
+## Overview <a href="#overview" id="overview"></a>
 
-The bunq Partner API allows partners to create and manage user accounts through bunq's partner infrastructure. It handles the complete lifecycle of user creation:
+The Partner User Provision API allows partners to create and manage user accounts through bunq's partner infrastructure. This API handles the complete lifecycle of user creation:
 
-1. Setting up the company account and API context
-2. Creating a session securely via API Context calls
-3. Setting up an OAuth Client
-4. Provisioning users within the bunq platform
-5. Completing onboarding KYC requirements
-6. Performing actions on behalf of provisioned users (payments, accounts, cards, and more)
+1. Setting up the company account
+2. Create a session securely via “API Context” calls
+3. Setting up Oauth Client
+4. Provisioning the users within the bunq platform
+5. Complete onboarding KYC requirements
+6. Finally, perform all actions on-behalf-of the provisioned users (Payments, Accounts, Cards and more)
 
-The API follows an asynchronous processing model where user creation happens in background processes, with status updates available through polling or webhooks.
+The API follows an asynchronous processing model where user creation happens in background processes, with status updates available through polling.
 
-## Prerequisites
+## Prerequisites <a href="#prerequisites" id="prerequisites"></a>
 
 Before using this API, ensure you have:
 
-1. **Partner Directory** — an active partner directory with appropriate permissions (bunq configures this for sandbox and production)
-2. **OAuth Client** — OAuth client credentials configured for your partner account (see Chapter 1)
-3. **Authentication** — valid partner session tokens (see Chapter 0)
-4. **Products** — access to the required products (e.g. `USER_VERIFIED`)
+1. Partner Directory: An active partner directory with appropriate permissions — bunq to configure for sandbox and production
+2. OAuth Client: OAuth client credentials configured for your partner account
+   1. See Chapter 1
+3. Authentication: Valid partner session tokens
+4. Products: Access to the required products (e.g., `USER_VERIFIED`)
 
-## Host URLs
+## Host URL for the API endpoints
 
-| Environment | URL |
-|---|---|
-| Sandbox | `https://partner-api.sandbox.bunq.com` |
-| Production | `https://api.partner.bunq.com` |
+<pre><code><strong>Sandbox
+</strong><strong>https://partner-api.sandbox.bunq.com
+</strong></code></pre>
 
-## Quick start with the MCP
+<pre><code><strong>Production
+</strong><strong>https://api.partner.bunq.com
+</strong></code></pre>
 
-If you're using the MCP server with Claude Desktop, the entire flow can be driven conversationally. See the [repository README](https://github.com/bunq/partner-mcp) for setup instructions.
+## Postman Collection
+
+{% file src="/broken/files/BSgiHOpYr5THLE5CrPO1" %}
