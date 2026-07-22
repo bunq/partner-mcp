@@ -690,6 +690,66 @@ export const TOOLS = [
       required: ["user_id", "card_id"],
     },
   },
+  {
+    name: "create_card_pan",
+    description:
+      "Generates and retrieves the primary account number (PAN) for a card. " +
+      "This is an encrypted endpoint — the request is end-to-end encrypted on top of TLS.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        user_id: { type: "number", description: "User ID." },
+        card_id: { type: "number", description: "Card ID." },
+      },
+      required: ["user_id", "card_id"],
+    },
+  },
+  {
+    name: "create_card_cvc2",
+    description:
+      "Generates a new CVC2 security code for a card. This is an encrypted endpoint — " +
+      "the request is end-to-end encrypted on top of TLS.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        user_id: { type: "number", description: "User ID." },
+        card_id: { type: "number", description: "Card ID." },
+        type: {
+          type: "string",
+          enum: ["STATIC", "GENERATED"],
+          description: "The type of CVC2 to generate.",
+        },
+      },
+      required: ["user_id", "card_id"],
+    },
+  },
+  {
+    name: "list_card_cvc2",
+    description:
+      "Lists all generated CVC2 codes for a card. This is an encrypted endpoint.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        user_id: { type: "number", description: "User ID." },
+        card_id: { type: "number", description: "Card ID." },
+      },
+      required: ["user_id", "card_id"],
+    },
+  },
+  {
+    name: "get_card_cvc2",
+    description:
+      "Gets the details of a specific generated CVC2 code. This is an encrypted endpoint.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        user_id: { type: "number", description: "User ID." },
+        card_id: { type: "number", description: "Card ID." },
+        generated_cvc2_id: { type: "number", description: "Generated CVC2 ID." },
+      },
+      required: ["user_id", "card_id", "generated_cvc2_id"],
+    },
+  },
 
   // ── Compliance: User Information Inquiry ─────────────────────────────────────
   {

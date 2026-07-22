@@ -107,11 +107,15 @@ partner-mcp/
 ├── src/
 │   ├── index.ts          # MCP server entry point (stdio transport)
 │   ├── bunq-client.ts    # HTTP client + auth lifecycle
+│   ├── encryption.ts     # Application-layer request/response encryption
 │   ├── tools.ts          # Tool definitions (MCP schemas)
 │   └── handler.ts        # Tool → API call mapping
+├── test/                 # Unit tests (node:test)
 ├── docs/                 # Documentation (synced to GitBook)
+├── partner-api-swagger.yaml       # Maintained OpenAPI spec
 ├── scripts/
-│   └── UPDATE.md         # Script to update MCP + docs from GitLab MRs
+│   ├── UPDATE.md                  # Manual prompt to update MCP + docs from GitLab MRs
+│   └── publish-partner-update.sh  # Automated updater (glab + Claude)
 ├── package.json
 └── tsconfig.json
 ```

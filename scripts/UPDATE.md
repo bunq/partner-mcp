@@ -69,30 +69,52 @@ In the GitHub repo `bunq/partner-mcp`, update the following files as needed:
 - A new tool was added
 - An endpoint path changed
 
-**`partner-api-swagger.yaml`** — Update the OpenAPI spec to reflect all changes.
-Keep the same structure and formatting. Update request bodies, response schemas,
-and endpoint descriptions as needed.
+**`partner-api-swagger.yaml`** — The maintained OpenAPI spec (this file exists in the
+repo). Update the affected paths/schemas **surgically** — same rules as the docs in
+Step 4. Never regenerate the file from scratch; keep its existing structure, ordering,
+and formatting intact.
 
-**`Partner_Onboarding_postman_collection.json`** — Update request bodies and URLs
-to match the new API behaviour. Keep all existing pre-request scripts and test
-scripts intact unless they're directly broken by the change.
+**Capability check (before writing tool code):** Some endpoints need client
+capabilities `src/bunq-client.ts` may not have yet — e.g. application-layer request
+encryption (`client.call(..., encrypt=true)`), binary/attachment upload, or response
+decryption. If an MR's endpoint needs a capability the client does **not** already
+support, do **not** add a tool that silently won't work. Flag it as a manual
+follow-up in your summary and skip the non-functional tool.
 
 ---
 
 ### Step 4 — Update the documentation
 
-For each affected doc page, rewrite the relevant sections to reflect the changes.
-Keep the same tone and structure as the existing pages. Be specific — show the
-new request/response format with a concrete example.
+Make **minimal, surgical** edits to the affected doc pages. Change only the specific
+lines the MR affects — **never rewrite a whole page.**
 
-If a field was renamed or removed, show the old format and the new format
-side by side so partners can see exactly what to change.
+**Preserve the existing formatting exactly.** Match the surrounding page's conventions:
+- `# Title` heading, short prose intro, then the endpoint in a ` ```http ` fence and
+  responses in ` ```json ` fences.
+- `##` section headers; `⚠️` prefix on critical warnings.
+- GitHub tables (`| Field | Type | Description |` with a `|---|---|---|` separator row)
+  for field lists.
+- `>` blockquotes for callouts; relative links like `./page.md` or
+  `../chapter-3-onboarding/create-user-session.md`.
+
+When adding a field to an existing table, add a row in the **same** table style — do
+not restructure the table or the page. Do not reflow, re-wrap, re-order, or re-title
+existing content. Do not touch pages the MRs do not affect; leave them byte-for-byte
+identical.
+
+If a field was renamed or removed, show the old format and the new format so partners
+can see exactly what to change. If you add or rename a page, keep `docs/SUMMARY.md`
+(the hand-maintained TOC) in sync — only the affected entry.
 
 ---
 
 ### Step 5 — Write the changelog entry
 
-Add a new entry to `docs/changelog.md` at the top of the file with today's date.
+Add a changelog entry to `docs/changelog.md`, above the
+`<!-- New entries are added above this line -->` marker.
+
+If a `## YYYY-MM-DD` section for today already exists, **append** bullets to its
+existing subsections — do **not** create a second heading for the same day.
 
 The entry should be written for a **partner developer** — someone integrating
 with the bunq Partner API. Write in plain English, not internal jargon.
@@ -119,11 +141,15 @@ Mark breaking changes clearly with ⚠️.
 
 ---
 
-### Step 6 — Open a GitHub PR
+### Step 6 — Show the diff, then open a GitHub PR after approval
 
-Create a pull request on `github.com/bunq/partner-mcp` with:
+First run `git diff` (and `git status` for new files) and present the full diff.
+**Stop and wait for approval** before committing, branching, or pushing.
 
-- **Branch name:** `update/mr-XXX-YYY-ZZZ` (using the MR numbers)
+Once approved, create a pull request on `github.com/bunq/partner-mcp` with:
+
+- **Branch name:** `update/mr-XXX-YYY-ZZZ` (using the MR numbers). If the branch
+  already exists, append a short suffix so nothing is overwritten.
 - **PR title:** `Update: [short description of main change]`
 - **PR description:** Paste the plain-English summary from Step 2, plus links
   to the GitLab MRs that were the source
