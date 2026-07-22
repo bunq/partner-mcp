@@ -104,9 +104,6 @@ partner-mcp/
 │   └── handler.ts        # Tool → API call mapping
 ├── test/                 # Unit tests (node:test)
 ├── partner-api-swagger.yaml       # Maintained OpenAPI spec
-├── scripts/
-│   ├── UPDATE.md                  # Manual prompt to update MCP from GitLab MRs
-│   └── publish-partner-update.sh  # Automated updater (glab + Claude)
 ├── package.json
 └── tsconfig.json
 ```
