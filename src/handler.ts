@@ -378,6 +378,54 @@ export async function handleTool(
       return await client.call("PUT", `/user/${userId}/card/${cardId}`, body);
     }
 
+    // ── Card details (encrypted endpoints) ────────────────────────────────────
+    case "create_card_pan": {
+      const userId = num(args.user_id);
+      const cardId = num(args.card_id);
+      return await client.call(
+        "POST",
+        `/user/${userId}/card/${cardId}/primary-account-number`,
+        null,
+        true
+      );
+    }
+
+    case "create_card_cvc2": {
+      const userId = num(args.user_id);
+      const cardId = num(args.card_id);
+      const body: Record<string, unknown> = {};
+      if (args.type) body.type = str(args.type);
+      return await client.call(
+        "POST",
+        `/user/${userId}/card/${cardId}/generated-cvc2`,
+        body,
+        true
+      );
+    }
+
+    case "list_card_cvc2": {
+      const userId = num(args.user_id);
+      const cardId = num(args.card_id);
+      return await client.call(
+        "GET",
+        `/user/${userId}/card/${cardId}/generated-cvc2`,
+        null,
+        true
+      );
+    }
+
+    case "get_card_cvc2": {
+      const userId = num(args.user_id);
+      const cardId = num(args.card_id);
+      const cvc2Id = num(args.generated_cvc2_id);
+      return await client.call(
+        "GET",
+        `/user/${userId}/card/${cardId}/generated-cvc2/${cvc2Id}`,
+        null,
+        true
+      );
+    }
+
     // ── Compliance: User Information Inquiry ──────────────────────────────────
     case "list_user_inquiries": {
       const userId = num(args.user_id);

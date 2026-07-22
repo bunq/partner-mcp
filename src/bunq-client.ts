@@ -1,5 +1,12 @@
 import crypto from "crypto";
 import { randomUUID } from "crypto";
+import {
+  encryptRequest,
+  decryptResponse,
+  HEADER_SERVER_ENCRYPTION_IV,
+  HEADER_SERVER_ENCRYPTION_KEY,
+  HEADER_SERVER_ENCRYPTION_HMAC,
+} from "./encryption.js";
 
 // ─── Environment ──────────────────────────────────────────────────────────────
 
@@ -67,17 +74,25 @@ export class BunqClient {
     return { privateKeyPem: privateKey, publicKeyPem: publicKey };
   }
 
-  /** bunq uses RSA-SHA256 signature over the request body */
-  private signBody(body: string, privateKeyPem: string): string {
+  /** bunq uses RSA-SHA256 signature over the request body (plaintext or ciphertext) */
+  private signBody(body: string | Buffer, privateKeyPem: string): string {
     const sign = crypto.createSign("SHA256");
     sign.update(body);
     sign.end();
     return sign.sign(privateKeyPem, "base64");
   }
 
+  private isResponseEncrypted(headers: Headers): boolean {
+    return (
+      headers.has(HEADER_SERVER_ENCRYPTION_KEY) &&
+      headers.has(HEADER_SERVER_ENCRYPTION_IV) &&
+      headers.has(HEADER_SERVER_ENCRYPTION_HMAC)
+    );
+  }
+
   // ── Headers ─────────────────────────────────────────────────────────────────
 
-  private commonHeaders(authToken: string, bodyStr: string, privateKeyPem?: string) {
+  private commonHeaders(authToken: string, bodyStr: string | Buffer, privateKeyPem?: string) {
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
       "Cache-Control": "no-cache",
@@ -101,18 +116,51 @@ export class BunqClient {
     path: string,
     body: Record<string, unknown> | null,
     authToken: string,
-    privateKeyPem?: string
+    privateKeyPem?: string,
+    encryptWithServerKey?: string
   ): Promise<Record<string, unknown>> {
     const bodyStr = body ? JSON.stringify(body) : "";
-    const headers = this.commonHeaders(authToken, bodyStr, privateKeyPem);
+
+    let wireBody: string | Uint8Array | undefined = bodyStr || undefined;
+    let signaturePayload: string | Buffer = bodyStr;
+    let encryptionHeaders: Record<string, string> = {};
+
+    if (encryptWithServerKey) {
+      const { cipher, headers } = encryptRequest(bodyStr, encryptWithServerKey);
+      wireBody = new Uint8Array(cipher);
+      signaturePayload = cipher;
+      encryptionHeaders = headers;
+    }
+
+    const headers = {
+      ...this.commonHeaders(authToken, signaturePayload, privateKeyPem),
+      ...encryptionHeaders,
+    };
 
     const res = await fetch(`${this.baseUrl}/v1${path}`, {
       method,
       headers,
-      body: bodyStr || undefined,
+      body: wireBody as BodyInit | undefined,
     });
 
-    const json = (await res.json()) as Record<string, unknown>;
+    const rawBuffer = Buffer.from(await res.arrayBuffer());
+
+    let bodyText: string;
+    if (privateKeyPem && this.isResponseEncrypted(res.headers)) {
+      bodyText = decryptResponse(
+        rawBuffer,
+        {
+          key: res.headers.get(HEADER_SERVER_ENCRYPTION_KEY)!,
+          iv: res.headers.get(HEADER_SERVER_ENCRYPTION_IV)!,
+          hmac: res.headers.get(HEADER_SERVER_ENCRYPTION_HMAC)!,
+        },
+        privateKeyPem
+      );
+    } else {
+      bodyText = rawBuffer.toString("utf8");
+    }
+
+    const json = JSON.parse(bodyText) as Record<string, unknown>;
 
     if (!res.ok) {
       const errs = json.Error as Array<Record<string, string>> | undefined;
@@ -202,18 +250,21 @@ export class BunqClient {
   async call(
     method: string,
     path: string,
-    body: Record<string, unknown> | null = null
+    body: Record<string, unknown> | null = null,
+    encrypt = false
   ): Promise<Record<string, unknown>> {
     await this.ensureSession();
     const s = this.session!;
+    const serverKey = encrypt ? s.serverPublicKey : undefined;
     try {
-      return await this.request(method, path, body, s.sessionToken, s.privateKeyPem);
+      return await this.request(method, path, body, s.sessionToken, s.privateKeyPem, serverKey);
     } catch (err) {
       // On 401/403, refresh and retry once
       if (err instanceof Error && /40[13]/.test(err.message)) {
         await this.refreshSession();
         const s2 = this.session!;
-        return await this.request(method, path, body, s2.sessionToken, s2.privateKeyPem);
+        const serverKey2 = encrypt ? s2.serverPublicKey : undefined;
+        return await this.request(method, path, body, s2.sessionToken, s2.privateKeyPem, serverKey2);
       }
       throw err;
     }
