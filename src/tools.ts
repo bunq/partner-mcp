@@ -1,7 +1,7 @@
 // ─── Tool definitions for bunq Partner MCP ───────────────────────────────────
 // Each tool maps 1-to-1 with a logical operation on the Partner API.
 // Input schemas use JSON Schema (draft-07) as required by MCP.
-// Source of truth: https://lexy.gitbook.io/partner-onboarding-api-docs
+// Source of truth: https://lexy.gitbook.io/partner-onboarding-api-docs/2xC1d0lJp5ubEkda2NxQ
 
 export const TOOLS = [
 

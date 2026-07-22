@@ -14,8 +14,8 @@ and replace the MR numbers at the top. Claude will do the rest.
 
 ---PROMPT START---
 
-I want to update the bunq Partner MCP server, Swagger, Postman collection, and GitBook
-documentation based on the following GitLab MRs that were just deployed to sandbox:
+I want to update the bunq Partner MCP server and Swagger spec based on the following
+GitLab MRs that were just deployed to sandbox:
 
 **MRs to include:** !XXX, !YYY, !ZZZ
 
@@ -42,16 +42,6 @@ Based on the diffs, identify:
 1. **Which API endpoints changed** (new, modified, or removed)
 2. **Which request/response fields changed** (added, renamed, removed, type changes)
 3. **Any breaking changes** — things partners need to update in their integration
-4. **Which doc pages are affected** — map changes to the GitBook chapter structure:
-   - Chapter 0: auth flow (installation, device, session, signing)
-   - Chapter 1: OAuth client and callback URL
-   - Chapter 2: user provision (create, monitor, close, token reset)
-   - Chapter 3: onboarding (session, fulfillments, KYC/Incode)
-   - Chapter 4: webhooks and notification filters
-   - Chapter 5: monetary accounts (EUR and non-EUR)
-   - Chapter 6: payments
-   - Chapter 7: cards (credit, debit, update)
-   - Chapter 8: compliance (attachments, user information inquiry)
 
 ---
 
@@ -83,65 +73,7 @@ follow-up in your summary and skip the non-functional tool.
 
 ---
 
-### Step 4 — Update the documentation
-
-Make **minimal, surgical** edits to the affected doc pages. Change only the specific
-lines the MR affects — **never rewrite a whole page.**
-
-**Preserve the existing formatting exactly.** Match the surrounding page's conventions:
-- `# Title` heading, short prose intro, then the endpoint in a ` ```http ` fence and
-  responses in ` ```json ` fences.
-- `##` section headers; `⚠️` prefix on critical warnings.
-- GitHub tables (`| Field | Type | Description |` with a `|---|---|---|` separator row)
-  for field lists.
-- `>` blockquotes for callouts; relative links like `./page.md` or
-  `../chapter-3-onboarding/create-user-session.md`.
-
-When adding a field to an existing table, add a row in the **same** table style — do
-not restructure the table or the page. Do not reflow, re-wrap, re-order, or re-title
-existing content. Do not touch pages the MRs do not affect; leave them byte-for-byte
-identical.
-
-If a field was renamed or removed, show the old format and the new format so partners
-can see exactly what to change. If you add or rename a page, keep `docs/SUMMARY.md`
-(the hand-maintained TOC) in sync — only the affected entry.
-
----
-
-### Step 5 — Write the changelog entry
-
-Add a changelog entry to `docs/changelog.md`, above the
-`<!-- New entries are added above this line -->` marker.
-
-If a `## YYYY-MM-DD` section for today already exists, **append** bullets to its
-existing subsections — do **not** create a second heading for the same day.
-
-The entry should be written for a **partner developer** — someone integrating
-with the bunq Partner API. Write in plain English, not internal jargon.
-
-Structure:
-```markdown
-## YYYY-MM-DD
-
-### What changed
-[1-3 sentences explaining what was updated and why]
-
-### What you need to do
-[Only include this section if partners need to change their integration.
-If it's a purely additive change, omit this section.]
-
-- [Specific action item]
-- [Specific action item]
-
-### New capabilities (if any)
-[Only include if new endpoints or fields were added]
-```
-
-Mark breaking changes clearly with ⚠️.
-
----
-
-### Step 6 — Show the diff, then open a GitHub PR after approval
+### Step 4 — Show the diff, then open a GitHub PR after approval
 
 First run `git diff` (and `git status` for new files) and present the full diff.
 **Stop and wait for approval** before committing, branching, or pushing.
