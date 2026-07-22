@@ -21,10 +21,8 @@ if ! command -v glab &> /dev/null; then
   exit 1
 fi
 
-# GitBook writes edits back to origin/main and periodically reorganises the
-# docs/ tree. Building on a stale base would resurrect deleted files and clobber
-# live docs, so we refuse to run unless the working tree is clean and on the
-# latest origin/main.
+# Building on a stale base risks resurrecting deleted files, so we refuse to run
+# unless the working tree is clean and on the latest origin/main.
 if [ -n "$(git status --porcelain)" ]; then
   echo "❌ Error: working tree is not clean. Commit or stash changes before updating."
   exit 1
@@ -83,7 +81,7 @@ echo ""
 # ── Step 2: Build prompt ───────────────────────────────────────────────────
 echo "┌─ Step 2/3: Building prompt..."
 
-PROMPT="I want to update the bunq Partner MCP server and GitBook documentation based on the following GitLab MRs that were just deployed to sandbox.
+PROMPT="I want to update the bunq Partner MCP server based on the following GitLab MRs that were just deployed to sandbox.
 
 **MRs:** $MR_FORMATTED
 
@@ -101,15 +99,12 @@ Identify:
 - Which API endpoints changed (new, modified, removed)
 - Which request/response fields changed
 - Any breaking changes partners need to act on
-- Which doc pages are affected (chapter-0 through chapter-8)
 
 ### Step 3 — Make the changes locally (do not commit yet)
 Work in the current repo checkout. Edit only what the MRs actually change:
-- partner-api-swagger.yaml — the maintained OpenAPI spec. Update the affected paths/schemas SURGICALLY (same rules as docs below). This file already exists — never regenerate it from scratch.
+- partner-api-swagger.yaml — the maintained OpenAPI spec. Update the affected paths/schemas SURGICALLY. This file already exists — never regenerate it from scratch.
 - src/tools.ts — fix tool schemas if fields/endpoints changed
 - src/handler.ts — fix API calls if request bodies/paths changed
-- docs/chapter-X/*.md — the affected doc pages
-- docs/changelog.md — the changelog entry (see format below)
 
 **Capability check — do this before writing any tool code:**
 Some endpoints need client capabilities the MCP may not have yet (e.g. application-layer
@@ -118,33 +113,6 @@ decryption). If an MR's endpoint needs a capability that src/bunq-client.ts does
 support, DO NOT add a tool that silently won't work. Instead, note it clearly in your Step 4
 summary as a required manual follow-up, and skip the non-functional tool. Only add tools whose
 transport is already supported.
-
-**Documentation editing rules — these are strict:**
-- Make MINIMAL, SURGICAL edits. Change only the specific lines the MR affects. NEVER rewrite a whole page.
-- PRESERVE the existing formatting exactly. Match the surrounding page's conventions:
-  - '# Title' heading, short prose intro, then endpoint in a \`\`\`http fence and responses in \`\`\`json fences.
-  - '##' section headers; '⚠️' prefix on critical warnings.
-  - GitHub tables ('| Field | Type | Description |' with a '|---|---|---|' separator row) for field lists.
-  - '>' blockquotes for callouts; relative links like ./page.md or ../chapter-3-onboarding/create-user-session.md.
-- When adding a field to an existing table, add a row in the SAME table style — do not restructure the table or the page.
-- Do NOT reflow, re-wrap, re-order, or re-title existing content. Do NOT touch pages the MRs do not affect.
-- If a page has no relevant change, leave it byte-for-byte identical.
-- If you update or add a doc page, keep docs/SUMMARY.md (the hand-maintained TOC) in sync — but only add/rename the affected entry.
-
-**Changelog format** — edit docs/changelog.md above the '<!-- New entries are added above this line -->' marker:
-- If a '## $TODAY' section already exists, APPEND bullets to its existing subsections. Do NOT create a second '## $TODAY' heading.
-- Otherwise add a new dated section using this structure:
-
-## $TODAY
-
-### What changed
-- [1-3 sentences per change, plain English, for a partner developer. Reference the MR, e.g. (MR !NNNNN).]
-
-### What you need to do
-[Only if breaking. Omit if purely additive. Mark with ⚠️]
-
-### New capabilities
-- [Only if new endpoints/fields added. Omit otherwise.]
 
 ### Step 4 — Show me the diff and STOP
 Run 'git diff' (and 'git status' for any new files) and present the full diff for review.

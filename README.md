@@ -88,17 +88,9 @@ Then restart Claude Desktop.
 
 ## Available tools (41)
 
-See [docs/](./docs/) for the full documentation, or browse by chapter:
+The full API documentation — covering auth, OAuth, user provision, onboarding & KYC, webhooks, monetary accounts, payments, cards, and compliance — lives in GitBook:
 
-- [Chapter 0 — API Context](./docs/chapter-0-api-context/) (auth, session, signing)
-- [Chapter 1 — OAuth](./docs/chapter-1-oauth/)
-- [Chapter 2 — User Provision](./docs/chapter-2-provision/)
-- [Chapter 3 — Onboarding & KYC](./docs/chapter-3-onboarding/)
-- [Chapter 4 — Webhooks](./docs/chapter-4-webhooks/)
-- [Chapter 5 — Monetary Accounts](./docs/chapter-5-accounts/)
-- [Chapter 6 — Payments](./docs/chapter-6-payments/)
-- [Chapter 7 — Cards](./docs/chapter-7-cards/)
-- [Chapter 8 — Compliance](./docs/chapter-8-compliance/)
+📚 **[Partner Onboarding API docs](https://lexy.gitbook.io/partner-onboarding-api-docs/2xC1d0lJp5ubEkda2NxQ)**
 
 ## Project structure
 
@@ -111,10 +103,9 @@ partner-mcp/
 │   ├── tools.ts          # Tool definitions (MCP schemas)
 │   └── handler.ts        # Tool → API call mapping
 ├── test/                 # Unit tests (node:test)
-├── docs/                 # Documentation (synced to GitBook)
 ├── partner-api-swagger.yaml       # Maintained OpenAPI spec
 ├── scripts/
-│   ├── UPDATE.md                  # Manual prompt to update MCP + docs from GitLab MRs
+│   ├── UPDATE.md                  # Manual prompt to update MCP from GitLab MRs
 │   └── publish-partner-update.sh  # Automated updater (glab + Claude)
 ├── package.json
 └── tsconfig.json
@@ -122,6 +113,6 @@ partner-mcp/
 
 ## Support
 
-- 📚 [Full documentation](https://lexy.gitbook.io/partner-onboarding-api-docs)
+- 📚 [Full documentation](https://lexy.gitbook.io/partner-onboarding-api-docs/2xC1d0lJp5ubEkda2NxQ)
 - 🐛 [Open an issue](https://github.com/bunq/partner-mcp/issues)
 - 💬 [bunq Together](https://together.bunq.com)
