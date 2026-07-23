@@ -438,6 +438,25 @@ components:
           type: string
           enum: [NONE, USER, SYSTEM]
           example: "SYSTEM"
+        user_onboarding_state:
+          type:
+          - string
+          - 'null'
+          enum: [IN_PROGRESS, ACTION_REQUIRED_USER, BLOCKED, PENDING_SYSTEM, APPROVED, DENIED, FROZEN, null]
+          example: "ACTION_REQUIRED_USER"
+          description: |
+            The last observed onboarding state for the provisioned user. Used by bunq to detect
+            partner-relevant onboarding transitions. A `USER_ONBOARDING_UPDATED` webhook is sent
+            only when this state changes (see the webhook docs), rather than on every onboarding
+            update. Values:
+            - `IN_PROGRESS`: Onboarding is progressing and no partner-relevant action is needed.
+            - `ACTION_REQUIRED_USER`: The user must take action to continue onboarding.
+            - `BLOCKED`: Onboarding is blocked and requires attention.
+            - `PENDING_SYSTEM`: bunq is processing; no action needed from user or partner.
+            - `APPROVED`: Onboarding was approved.
+            - `DENIED`: Onboarding was denied.
+            - `FROZEN`: Onboarding is frozen.
+            May be `null` until the first onboarding state has been observed.
         products:
           type: array
           items:
@@ -5140,7 +5159,12 @@ webhooks:
     post:
       summary: User Onboarding Updated
       description: |
-        Triggered when user onboarding status changes.
+        Triggered only when the partner-relevant onboarding state of a provisioned user
+        changes — not on every onboarding update. The state is derived from the onboarding's
+        status and required action (see `PartnerUserProvision.user_onboarding_state`), and a
+        notification is sent only when a partner-relevant transition occurs (e.g. action now
+        required from the user, blocked, approved, denied, or frozen). Purely internal
+        progression that requires no partner or user action no longer produces a webhook.
         Uses existing event type: USER_ONBOARDING_UPDATED
         Category: USER_ONBOARDING
       requestBody:
