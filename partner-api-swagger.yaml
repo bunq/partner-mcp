@@ -5140,7 +5140,14 @@ webhooks:
     post:
       summary: User Onboarding Updated
       description: |
-        Triggered when user onboarding status changes.
+        Triggered only when the onboarding's `action_required` value changes
+        (i.e. the party responsible for the next step flips between NONE, USER,
+        and SYSTEM). Onboarding updates that do not change `action_required` no
+        longer generate a webhook, so partners receive an event only when there
+        is a meaningful change in what action is expected. Inspect the
+        `action_required` field to determine who must act next: `USER` means the
+        end user must do something, `SYSTEM` means bunq is processing, and
+        `NONE` means no action is pending.
         Uses existing event type: USER_ONBOARDING_UPDATED
         Category: USER_ONBOARDING
       requestBody:
