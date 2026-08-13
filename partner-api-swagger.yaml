@@ -912,6 +912,14 @@ components:
           nullable: true
           description: The ID of the card used for the authentication request.
           example: 15
+        monetary_account_id:
+          type: integer
+          nullable: true
+          description: |
+            The ID of the monetary account the transaction will be charged from.
+            NULL when no account was selected on approval, in which case the account is
+            determined automatically (savings auto-route, or the card's primary account).
+          example: 42
     MonetaryAccountBank:
       type: object
       properties:
@@ -3253,6 +3261,16 @@ paths:
       summary: Update Challenge Request
       description: |
         Accept or reject a Mastercard Identity Check (3DS) challenge request.
+
+        When accepting, you may optionally pass `monetary_account_id` to choose which account
+        the follow-up transaction is charged from. When omitted, the account is determined
+        automatically: by savings auto-route if the user has it enabled, otherwise the card's
+        primary account.
+
+        On acceptance the available balance of the selected account (or the automatically
+        determined one) is checked against the transaction amount. If it is insufficient the
+        approval is rejected with a `400` and the challenge request keeps its current status,
+        so it can be retried against a different account.
       security:
       - SessionAuth: []
       - ClientSignature: []
@@ -3289,6 +3307,14 @@ paths:
                   enum: [ACCEPTED_PENDING_RESPONSE, REJECTED_PENDING_RESPONSE]
                   example: "ACCEPTED_PENDING_RESPONSE"
                   description: The status of the identity check.
+                monetary_account_id:
+                  type: integer
+                  nullable: true
+                  example: 42
+                  description: |
+                    The monetary account the transaction should be charged from. Optional, and
+                    only meaningful when accepting. When omitted the account is determined
+                    automatically.
       responses:
         '200':
           description: Challenge request updated successfully
@@ -3304,6 +3330,31 @@ paths:
                       properties:
                         Id:
                           $ref: '#/components/schemas/Id'
+        '400':
+          description: |
+            The selected account — or, when none was selected, the automatically determined
+            one — does not have enough money to complete the payment. The challenge request
+            status is left unchanged.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  Error:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        error_description:
+                          type: string
+                          example: "Account doesn't have enough money to complete the payment."
+                        error_description_translated:
+                          type: string
+                          example: "Account doesn't have enough money to complete the payment."
+              example:
+                Error:
+                - error_description: "Account doesn't have enough money to complete the payment."
+                  error_description_translated: "Account doesn't have enough money to complete the payment."
 
   /user/{userId}/monetary-account/{accountId}/payment:
     post:
