@@ -3980,7 +3980,10 @@ paths:
       tags:
       - Account Management
       summary: Update Bank Account
-      description: Update bank account settings and status
+      description: >-
+        Update bank account settings and status. To reopen a cancelled account,
+        set status to PENDING_REOPEN and sub_status to NONE; this is permitted for
+        partner-provisioned users without requiring a paid subscription.
       security:
       - SessionAuth: []
       - ClientSignature: []
@@ -4024,7 +4027,7 @@ paths:
                       example: "EUR"
                 status:
                   type: string
-                  enum: [ACTIVE, BLOCKED, CANCELLED, FROZEN]
+                  enum: [ACTIVE, BLOCKED, CANCELLED, PENDING_REOPEN, FROZEN]
                   example: "ACTIVE"
                 sub_status:
                   type: string

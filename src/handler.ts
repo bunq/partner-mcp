@@ -281,6 +281,19 @@ export async function handleTool(
       return await client.call("GET", `/user/${userId}/monetary-account/${accountId}`, null);
     }
 
+    case "update_bank_account": {
+      const userId = num(args.user_id);
+      const accountId = num(args.account_id);
+      const body: Record<string, unknown> = {};
+      if (args.description) body.description = str(args.description);
+      if (args.daily_limit) body.daily_limit = obj(args.daily_limit);
+      if (args.status) body.status = str(args.status);
+      if (args.sub_status) body.sub_status = str(args.sub_status);
+      if (args.reason) body.reason = str(args.reason);
+      if (args.reason_description) body.reason_description = str(args.reason_description);
+      return await client.call("PUT", `/user/${userId}/monetary-account-bank/${accountId}`, body);
+    }
+
     // ── Payments ──────────────────────────────────────────────────────────────
     case "create_payment": {
       const userId = num(args.user_id);
