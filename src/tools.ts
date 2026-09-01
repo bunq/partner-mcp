@@ -514,6 +514,42 @@ export const TOOLS = [
       required: ["user_id", "account_id"],
     },
   },
+  {
+    name: "update_bank_account",
+    description:
+      "Updates a bank account (MonetaryAccountBank): description, daily limit, or status. " +
+      "To reopen a cancelled account set status='PENDING_REOPEN' and sub_status='NONE' — " +
+      "this is permitted for partner-provisioned users without a paid subscription.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        user_id: { type: "number", description: "User ID." },
+        account_id: { type: "number", description: "Monetary account ID." },
+        description: { type: "string", description: "New account display name." },
+        daily_limit: {
+          type: "object",
+          description: "Daily spending limit, e.g. { value: '2000.00', currency: 'EUR' }.",
+        },
+        status: {
+          type: "string",
+          enum: ["ACTIVE", "BLOCKED", "CANCELLED", "PENDING_REOPEN", "FROZEN"],
+          description: "New account status. Use PENDING_REOPEN to reopen a cancelled account.",
+        },
+        sub_status: {
+          type: "string",
+          enum: ["NONE", "REDEMPTION_VOLUNTARY"],
+          description: "Account sub-status. Set to NONE when reopening.",
+        },
+        reason: {
+          type: "string",
+          enum: ["OTHER"],
+          description: "Reason when closing the account (status=CANCELLED).",
+        },
+        reason_description: { type: "string", description: "Free-text reason description." },
+      },
+      required: ["user_id", "account_id"],
+    },
+  },
 
   // ── Payments ──────────────────────────────────────────────────────────────────
   {
