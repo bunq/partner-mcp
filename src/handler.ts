@@ -115,6 +115,17 @@ export async function handleTool(
       });
     }
 
+    // ── User Freeze ─────────────────────────────────────────────────────────────
+    case "freeze_user": {
+      const userId = num(args.user_id);
+      return await client.call("POST", `/user/${userId}/freeze`, {});
+    }
+
+    case "unfreeze_user": {
+      const userId = num(args.user_id);
+      return await client.call("POST", `/user/${userId}/unfreeze`, {});
+    }
+
     // ── Webhooks ──────────────────────────────────────────────────────────────
     case "set_notification_filters": {
       // ⚠️ Replaces ALL existing filters — caller must include the full desired list
@@ -208,7 +219,6 @@ export async function handleTool(
     }
 
     case "submit_identity_verification": {
-      // user_id here is UserApiKey.id per the docs
       const userId = num(args.user_id);
       const sessionId = num(args.session_id);
       return await client.call(

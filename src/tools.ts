@@ -173,6 +173,36 @@ export const TOOLS = [
     },
   },
 
+  // ── User Freeze ──────────────────────────────────────────────────────────────
+  {
+    name: "freeze_user",
+    description:
+      "Freezes a user you provisioned. A partner pays for its active users, so freeze a user you " +
+      "no longer pay for. The user's monetary accounts and cards freeze along with the user, while " +
+      "the subscription and partner connection are kept so the user can be unfrozen later. The " +
+      "partner keeps access to the frozen user. Reverse with unfreeze_user.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        user_id: { type: "number", description: "ID of the provisioned user." },
+      },
+      required: ["user_id"],
+    },
+  },
+  {
+    name: "unfreeze_user",
+    description:
+      "Unfreezes a user you previously froze. The user's monetary accounts and cards unfreeze along " +
+      "with the user and return to active. Use when the partner resumes paying for the user.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        user_id: { type: "number", description: "ID of the provisioned user." },
+      },
+      required: ["user_id"],
+    },
+  },
+
   // ── Webhooks / Notification Filters ─────────────────────────────────────────
   {
     name: "set_notification_filters",
@@ -385,7 +415,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "UserApiKey.id of the provisioned user." },
+        user_id: { type: "number", description: "ID of the provisioned user." },
         session_id: { type: "number", description: "ID of the identity verification session." },
       },
       required: ["user_id", "session_id"],

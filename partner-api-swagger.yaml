@@ -2168,6 +2168,103 @@ paths:
                     items:
                       $ref: '#/components/schemas/Id'
 
+  /user/{userId}/freeze:
+    post:
+      tags:
+      - User Management
+      summary: Freeze User
+      description: |
+        Freeze a user you provisioned. A partner pays for its active users, so freezing a user
+        it no longer pays for suspends that user. The user's monetary accounts and cards are frozen
+        along with the user, while the user's subscription and partner connection are kept intact so
+        the user can be unfrozen later. The partner keeps access to the frozen user.
+
+        Send an empty request body. Reopen the user later with the unfreeze endpoint.
+      security:
+      - SessionAuth: []
+      - ClientSignature: []
+      parameters:
+      - name: userId
+        in: path
+        required: true
+        description: ID of the provisioned user.
+        schema:
+          type: integer
+      - *id001
+      - *id002
+      - *id003
+      - *id004
+      - *id005
+      - *id006
+      - *id007
+      - *id008
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: User frozen successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  Response:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Id'
+
+  /user/{userId}/unfreeze:
+    post:
+      tags:
+      - User Management
+      summary: Unfreeze User
+      description: |
+        Unfreeze a user you previously froze. The user's monetary accounts and cards are unfrozen
+        along with the user and returned to active. Use this when the partner resumes paying for the
+        user.
+
+        Send an empty request body.
+      security:
+      - SessionAuth: []
+      - ClientSignature: []
+      parameters:
+      - name: userId
+        in: path
+        required: true
+        description: ID of the provisioned user.
+        schema:
+          type: integer
+      - *id001
+      - *id002
+      - *id003
+      - *id004
+      - *id005
+      - *id006
+      - *id007
+      - *id008
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: User unfrozen successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  Response:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Id'
+
   /user/{userId}/attachment:
     post:
       tags:
