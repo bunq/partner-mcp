@@ -1,4 +1,5 @@
 import { BunqClient } from "./bunq-client.js";
+import { searchKnowledge, listTopic, getTopic } from "./knowledge/knowledge-tool.js";
 
 type Args = Record<string, unknown>;
 
@@ -25,6 +26,20 @@ export async function handleTool(
   client: BunqClient
 ): Promise<unknown> {
   switch (name) {
+
+    // ── Knowledge (local, no API call) ──────────────────────────────────────────
+    case "search_knowledge": {
+      const topK = args.top_k === undefined ? 5 : num(args.top_k);
+      return await searchKnowledge(str(args.query), topK);
+    }
+
+    case "list_topics": {
+      return listTopic();
+    }
+
+    case "get_topic": {
+      return getTopic(str(args.slug));
+    }
 
     // ── Session ───────────────────────────────────────────────────────────────
     case "get_session_info": {

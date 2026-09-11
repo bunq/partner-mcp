@@ -5,6 +5,44 @@
 
 export const TOOLS = [
 
+  // ── Knowledge ─────────────────────────────────────────────────────────────────
+  {
+    name: "search_knowledge",
+    description:
+      "Search the bunq Partner API knowledge base and return the most relevant reference and " +
+      "explainer snippets. Use this to answer questions about how the Partner API works — " +
+      "provisioning, KYC, accounts, payments, cards, compliance, webhooks — and about endpoint " +
+      "fields, statuses, and errors. This tool does not call the API.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "The question or keywords to search for." },
+        top_k: { type: "number", description: "How many snippets to return. Default 5." },
+      },
+      required: ["query"],
+    },
+  },
+  {
+    name: "list_topics",
+    description:
+      "List the explainer topics in the knowledge base, each with its slug, title, and tags. " +
+      "Use get_topic to read one in full. This tool does not call the API.",
+    inputSchema: { type: "object", properties: {}, required: [] },
+  },
+  {
+    name: "get_topic",
+    description:
+      "Return one explainer topic in full by its slug. Get the slug from list_topics or from a " +
+      "search_knowledge citation. This tool does not call the API.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        slug: { type: "string", description: 'The topic slug, for example "kyc".' },
+      },
+      required: ["slug"],
+    },
+  },
+
   // ── Session ─────────────────────────────────────────────────────────────────
   {
     name: "get_session_info",
