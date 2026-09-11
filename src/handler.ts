@@ -115,6 +115,17 @@ export async function handleTool(
       });
     }
 
+    // ── User Freeze ─────────────────────────────────────────────────────────────
+    case "freeze_user": {
+      const userId = num(args.user_id);
+      return await client.call("POST", `/user/${userId}/freeze`, {});
+    }
+
+    case "unfreeze_user": {
+      const userId = num(args.user_id);
+      return await client.call("POST", `/user/${userId}/unfreeze`, {});
+    }
+
     // ── Webhooks ──────────────────────────────────────────────────────────────
     case "set_notification_filters": {
       // ⚠️ Replaces ALL existing filters — caller must include the full desired list
