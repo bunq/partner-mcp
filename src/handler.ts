@@ -219,7 +219,6 @@ export async function handleTool(
     }
 
     case "submit_identity_verification": {
-      // user_id here is UserApiKey.id per the docs
       const userId = num(args.user_id);
       const sessionId = num(args.session_id);
       return await client.call(

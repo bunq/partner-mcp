@@ -184,7 +184,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "UserApiKey.id of the provisioned user to freeze." },
+        user_id: { type: "number", description: "ID of the provisioned user." },
       },
       required: ["user_id"],
     },
@@ -197,7 +197,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "UserApiKey.id of the provisioned user to unfreeze." },
+        user_id: { type: "number", description: "ID of the provisioned user." },
       },
       required: ["user_id"],
     },
@@ -415,7 +415,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "UserApiKey.id of the provisioned user." },
+        user_id: { type: "number", description: "ID of the provisioned user." },
         session_id: { type: "number", description: "ID of the identity verification session." },
       },
       required: ["user_id", "session_id"],

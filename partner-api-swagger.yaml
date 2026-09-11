@@ -2187,7 +2187,7 @@ paths:
       - name: userId
         in: path
         required: true
-        description: The UserApiKey.id of the provisioned user.
+        description: ID of the provisioned user.
         schema:
           type: integer
       - *id001
@@ -2235,7 +2235,7 @@ paths:
       - name: userId
         in: path
         required: true
-        description: The UserApiKey.id of the provisioned user.
+        description: ID of the provisioned user.
         schema:
           type: integer
       - *id001
