@@ -204,10 +204,10 @@ components:
           description: Current status of the bunq.me tab.
         type:
           type: string
-          example: "BUNQME_TAB"
+          example: "BUNQ_ME"
         bunqme_tab_share_url:
           type: string
-          example: "https://bunq.me/tab/xxxxxxxx"
+          example: "https://bunq.me/o/xxxxxxxx"
           description: The shareable URL the payer opens to pay.
         payment_method:
           type:
@@ -227,7 +227,7 @@ components:
     Error:
       type: object
       properties:
-        error_description:
+        Error:
           type: array
           items:
             type: object
@@ -235,9 +235,9 @@ components:
               error_description:
                 type: string
                 example: "Invalid request"
-        error_description_translated:
-          type: string
-          example: "The request is invalid"
+              error_description_translated:
+                type: string
+                example: "The request is invalid"
 
     UserInformationInquiryEntry:
       type: object
@@ -5316,6 +5316,7 @@ paths:
                   description: The details of the payment request shown to the payer.
                   required:
                   - amount_inquired
+                  - description
                   properties:
                     amount_inquired:
                       type: object
@@ -5433,8 +5434,8 @@ paths:
                     time_expiry: "2026-10-15 14:30:00.000000"
                     monetary_account_id: 42
                     status: "WAITING_FOR_PAYMENT"
-                    type: "BUNQME_TAB"
-                    bunqme_tab_share_url: "https://bunq.me/tab/xxxxxxxx"
+                    type: "BUNQ_ME"
+                    bunqme_tab_share_url: "https://bunq.me/o/xxxxxxxx"
                     payment_method: "IDEAL"
                     event_id:
 
@@ -5498,8 +5499,8 @@ paths:
                     time_expiry: "2026-10-15 14:30:00.000000"
                     monetary_account_id: 42
                     status: "WAITING_FOR_PAYMENT"
-                    type: "BUNQME_TAB"
-                    bunqme_tab_share_url: "https://bunq.me/tab/xxxxxxxx"
+                    type: "BUNQ_ME"
+                    bunqme_tab_share_url: "https://bunq.me/o/xxxxxxxx"
                     payment_method: "IDEAL"
                     event_id:
         '404':
