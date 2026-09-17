@@ -632,6 +632,83 @@ export const TOOLS = [
     },
   },
 
+  // ── bunq.me Tabs ────────────────────────────────────────────────────────────
+  {
+    name: "create_bunqme_tab",
+    description:
+      "Creates a bunq.me tab: a shareable payment request link for a user's monetary account. " +
+      "The response's bunqme_tab_share_url can be opened by anyone to pay the inquired amount. " +
+      "Optionally set payment_method (e.g. 'IDEAL') to restrict the link to a single top-up " +
+      "method — the payer then sees only that method, which is cheaper. Omit it to offer all " +
+      "methods. payment_method is set on creation only and cannot be changed later.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        user_id: { type: "number", description: "ID of the provisioned user." },
+        account_id: { type: "number", description: "Monetary account the tab collects into." },
+        amount: { type: "string", description: "Amount inquired as decimal string (e.g. '10.00')." },
+        currency: { type: "string", description: "ISO-4217 currency code.", default: "EUR" },
+        description: { type: "string", description: "Description shown to the payer." },
+        redirect_url: {
+          type: "string",
+          description: "Optional URL the payer is redirected to after paying.",
+        },
+        payment_method: {
+          type: "string",
+          description:
+            "Optional single top-up method the payer may use (e.g. 'IDEAL', 'BUNQ_TRANSFER'). " +
+            "Omit to offer all available methods.",
+        },
+      },
+      required: ["user_id", "account_id", "amount"],
+    },
+  },
+  {
+    name: "get_bunqme_tab",
+    description: "Gets the details of a specific bunq.me tab, including its share URL and status.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        user_id: { type: "number", description: "User ID." },
+        account_id: { type: "number", description: "Monetary account ID." },
+        bunqme_tab_id: { type: "number", description: "bunq.me tab ID." },
+      },
+      required: ["user_id", "account_id", "bunqme_tab_id"],
+    },
+  },
+  {
+    name: "list_bunqme_tabs",
+    description: "Lists all bunq.me tabs for a monetary account.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        user_id: { type: "number", description: "User ID." },
+        account_id: { type: "number", description: "Monetary account ID." },
+      },
+      required: ["user_id", "account_id"],
+    },
+  },
+  {
+    name: "update_bunqme_tab",
+    description:
+      "Updates a bunq.me tab. Typically used to close an open tab by setting status to " +
+      "'CANCELLED'. The payment_method cannot be changed after creation.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        user_id: { type: "number", description: "User ID." },
+        account_id: { type: "number", description: "Monetary account ID." },
+        bunqme_tab_id: { type: "number", description: "bunq.me tab ID." },
+        status: {
+          type: "string",
+          enum: ["WAITING_FOR_PAYMENT", "CANCELLED"],
+          description: "New status. Set to CANCELLED to close the tab.",
+        },
+      },
+      required: ["user_id", "account_id", "bunqme_tab_id"],
+    },
+  },
+
   // ── Cards ─────────────────────────────────────────────────────────────────────
   {
     name: "create_credit_card",

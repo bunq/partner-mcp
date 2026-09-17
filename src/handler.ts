@@ -349,6 +349,61 @@ export async function handleTool(
       );
     }
 
+    // ── bunq.me Tabs ──────────────────────────────────────────────────────────
+    case "create_bunqme_tab": {
+      const userId = num(args.user_id);
+      const accountId = num(args.account_id);
+      const bunqmeTabEntry: Record<string, unknown> = {
+        amount_inquired: {
+          value: str(args.amount),
+          currency: str(args.currency, "EUR"),
+        },
+      };
+      if (args.description) bunqmeTabEntry.description = str(args.description);
+      if (args.redirect_url) bunqmeTabEntry.redirect_url = str(args.redirect_url);
+      const body: Record<string, unknown> = { bunqme_tab_entry: bunqmeTabEntry };
+      if (args.payment_method) body.payment_method = str(args.payment_method);
+      return await client.call(
+        "POST",
+        `/user/${userId}/monetary-account/${accountId}/bunqme-tab`,
+        body
+      );
+    }
+
+    case "get_bunqme_tab": {
+      const userId = num(args.user_id);
+      const accountId = num(args.account_id);
+      const tabId = num(args.bunqme_tab_id);
+      return await client.call(
+        "GET",
+        `/user/${userId}/monetary-account/${accountId}/bunqme-tab/${tabId}`,
+        null
+      );
+    }
+
+    case "list_bunqme_tabs": {
+      const userId = num(args.user_id);
+      const accountId = num(args.account_id);
+      return await client.call(
+        "GET",
+        `/user/${userId}/monetary-account/${accountId}/bunqme-tab`,
+        null
+      );
+    }
+
+    case "update_bunqme_tab": {
+      const userId = num(args.user_id);
+      const accountId = num(args.account_id);
+      const tabId = num(args.bunqme_tab_id);
+      const body: Record<string, unknown> = {};
+      if (args.status) body.status = str(args.status);
+      return await client.call(
+        "PUT",
+        `/user/${userId}/monetary-account/${accountId}/bunqme-tab/${tabId}`,
+        body
+      );
+    }
+
     // ── Cards ─────────────────────────────────────────────────────────────────
     case "create_credit_card": {
       const userId = num(args.user_id);
