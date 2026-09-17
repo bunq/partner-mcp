@@ -43,6 +43,8 @@ tags:
   description: Webhook notification filter URL management
 - name: User Information Inquiry
   description: Read-only access to compliance and onboarding information requests for provisioned users
+- name: bunq.me Management
+  description: Create and manage bunq.me payment request tabs for provisioned users
 components:
   securitySchemes:
     InstallationAuth:
@@ -170,6 +172,57 @@ components:
           - string
           - 'null'
           description: URL to fetch an older page (null if none).
+
+    BunqMeTab:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1001
+          description: The ID of the bunq.me tab.
+        created:
+          type: string
+          format: date-time
+          example: "2026-09-15 14:30:00.000000"
+        updated:
+          type: string
+          format: date-time
+          example: "2026-09-15 14:30:00.000000"
+        time_expiry:
+          type: string
+          format: date-time
+          example: "2026-10-15 14:30:00.000000"
+          description: When the bunq.me tab expires.
+        monetary_account_id:
+          type: integer
+          example: 42
+          description: The monetary account the tab collects into.
+        status:
+          type: string
+          enum: [WAITING_FOR_PAYMENT, CANCELLED, EXPIRED]
+          example: "WAITING_FOR_PAYMENT"
+          description: Current status of the bunq.me tab.
+        type:
+          type: string
+          example: "BUNQME_TAB"
+        bunqme_tab_share_url:
+          type: string
+          example: "https://bunq.me/tab/xxxxxxxx"
+          description: The shareable URL the payer opens to pay.
+        payment_method:
+          type:
+          - string
+          - 'null'
+          example: "IDEAL"
+          description: |
+            The only top-up method the payer may use (for example `IDEAL`). Null when all
+            available top-up methods are offered.
+        event_id:
+          type:
+          - integer
+          - 'null'
+          example: 42
+          description: The ID of the latest event for the bunq.me tab.
 
     Error:
       type: object
@@ -5205,6 +5258,328 @@ paths:
                     external_model_id: 12345
         '404':
           description: Inquiry not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /user/{userId}/monetary-account/{accountId}/bunqme-tab:
+    post:
+      tags:
+      - bunq.me Management
+      summary: Create bunq.me Tab
+      description: |
+        Create a bunq.me tab: a shareable payment request link for a provisioned user's
+        monetary account. The response includes a `bunqme_tab_share_url` that anyone can open
+        to pay the inquired amount.
+
+        **Payment method:**
+        - By default the payer can choose any available top-up method.
+        - Set `payment_method` to restrict the link to a single method (for example `IDEAL`,
+          which is cheaper than the alternatives). The payer then sees only that method.
+        - `payment_method` is set on creation only and cannot be changed afterwards.
+      security:
+      - SessionAuth: []
+      - ClientSignature: []
+      parameters:
+      - name: userId
+        in: path
+        required: true
+        schema:
+          type: integer
+        description: ID of the provisioned user.
+      - name: accountId
+        in: path
+        required: true
+        schema:
+          type: integer
+        description: ID of the monetary account the tab collects into.
+      - *id001
+      - *id002
+      - *id003
+      - *id004
+      - *id005
+      - *id006
+      - *id007
+      - *id008
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - bunqme_tab_entry
+              properties:
+                bunqme_tab_entry:
+                  type: object
+                  description: The details of the payment request shown to the payer.
+                  required:
+                  - amount_inquired
+                  properties:
+                    amount_inquired:
+                      type: object
+                      description: The amount the payer is requested to pay.
+                      required:
+                      - value
+                      - currency
+                      properties:
+                        value:
+                          type: string
+                          example: "10.00"
+                          description: Amount in decimal format.
+                        currency:
+                          type: string
+                          example: "EUR"
+                          description: ISO 4217 currency code.
+                    description:
+                      type: string
+                      example: "Dinner split"
+                      description: Description of the payment request shown to the payer.
+                    redirect_url:
+                      type: string
+                      example: "https://example.com/thank-you"
+                      description: Optional URL the payer is redirected to after paying.
+                payment_method:
+                  type: string
+                  example: "IDEAL"
+                  description: |
+                    The only top-up method the payer may use (for example `IDEAL`). When omitted,
+                    all available top-up methods are offered. Cannot be changed after creation.
+            example:
+              bunqme_tab_entry:
+                amount_inquired:
+                  value: "10.00"
+                  currency: "EUR"
+                description: "Dinner split"
+              payment_method: "IDEAL"
+      responses:
+        '200':
+          description: bunq.me tab created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  Response:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        Id:
+                          $ref: '#/components/schemas/Id'
+              example:
+                Response:
+                - Id:
+                    id: 1001
+        '400':
+          description: Bad request - invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    get:
+      tags:
+      - bunq.me Management
+      summary: List bunq.me Tabs
+      description: List all bunq.me tabs for a provisioned user's monetary account.
+      security:
+      - SessionAuth: []
+      - ClientSignature: []
+      parameters:
+      - name: userId
+        in: path
+        required: true
+        schema:
+          type: integer
+        description: ID of the provisioned user.
+      - name: accountId
+        in: path
+        required: true
+        schema:
+          type: integer
+        description: ID of the monetary account.
+      - *id001
+      - *id002
+      - *id003
+      - *id004
+      - *id005
+      - *id006
+      - *id007
+      - *id008
+      responses:
+        '200':
+          description: List of bunq.me tabs for the account
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  Response:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        BunqMeTab:
+                          $ref: '#/components/schemas/BunqMeTab'
+                  Pagination:
+                    $ref: '#/components/schemas/Pagination'
+              example:
+                Response:
+                - BunqMeTab:
+                    id: 1001
+                    created: "2026-09-15 14:30:00.000000"
+                    updated: "2026-09-15 14:30:00.000000"
+                    time_expiry: "2026-10-15 14:30:00.000000"
+                    monetary_account_id: 42
+                    status: "WAITING_FOR_PAYMENT"
+                    type: "BUNQME_TAB"
+                    bunqme_tab_share_url: "https://bunq.me/tab/xxxxxxxx"
+                    payment_method: "IDEAL"
+                    event_id:
+
+  /user/{userId}/monetary-account/{accountId}/bunqme-tab/{itemId}:
+    get:
+      tags:
+      - bunq.me Management
+      summary: Get bunq.me Tab
+      description: Get the details of a specific bunq.me tab, including its share URL and status.
+      security:
+      - SessionAuth: []
+      - ClientSignature: []
+      parameters:
+      - name: userId
+        in: path
+        required: true
+        schema:
+          type: integer
+        description: ID of the provisioned user.
+      - name: accountId
+        in: path
+        required: true
+        schema:
+          type: integer
+        description: ID of the monetary account.
+      - name: itemId
+        in: path
+        required: true
+        schema:
+          type: integer
+        description: ID of the bunq.me tab.
+      - *id001
+      - *id002
+      - *id003
+      - *id004
+      - *id005
+      - *id006
+      - *id007
+      - *id008
+      responses:
+        '200':
+          description: bunq.me tab details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  Response:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        BunqMeTab:
+                          $ref: '#/components/schemas/BunqMeTab'
+              example:
+                Response:
+                - BunqMeTab:
+                    id: 1001
+                    created: "2026-09-15 14:30:00.000000"
+                    updated: "2026-09-15 14:30:00.000000"
+                    time_expiry: "2026-10-15 14:30:00.000000"
+                    monetary_account_id: 42
+                    status: "WAITING_FOR_PAYMENT"
+                    type: "BUNQME_TAB"
+                    bunqme_tab_share_url: "https://bunq.me/tab/xxxxxxxx"
+                    payment_method: "IDEAL"
+                    event_id:
+        '404':
+          description: bunq.me tab not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    put:
+      tags:
+      - bunq.me Management
+      summary: Update bunq.me Tab
+      description: |
+        Update a bunq.me tab. Typically used to close an open tab by setting `status` to
+        `CANCELLED`. The `payment_method` cannot be changed after creation.
+      security:
+      - SessionAuth: []
+      - ClientSignature: []
+      parameters:
+      - name: userId
+        in: path
+        required: true
+        schema:
+          type: integer
+        description: ID of the provisioned user.
+      - name: accountId
+        in: path
+        required: true
+        schema:
+          type: integer
+        description: ID of the monetary account.
+      - name: itemId
+        in: path
+        required: true
+        schema:
+          type: integer
+        description: ID of the bunq.me tab.
+      - *id001
+      - *id002
+      - *id003
+      - *id004
+      - *id005
+      - *id006
+      - *id007
+      - *id008
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [WAITING_FOR_PAYMENT, CANCELLED]
+                  example: "CANCELLED"
+                  description: New status of the bunq.me tab. Set to `CANCELLED` to close it.
+            example:
+              status: "CANCELLED"
+      responses:
+        '200':
+          description: bunq.me tab updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  Response:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        Id:
+                          $ref: '#/components/schemas/Id'
+              example:
+                Response:
+                - Id:
+                    id: 1001
+        '400':
+          description: Bad request - invalid parameters
           content:
             application/json:
               schema:
