@@ -709,6 +709,61 @@ export const TOOLS = [
     },
   },
 
+  // ── Devices (end-user devices of provisioned users) ──────────────────────────
+  {
+    name: "register_device",
+    description:
+      "Registers an end-user device (e.g. the user's phone) for a provisioned user. The device " +
+      "creates its own RSA key pair (min 2048 bits) and keeps the private key; pass only its PEM " +
+      "public key. Returns the device id, its public_uuid (sent as X-Bunq-Device-Uuid on " +
+      "device-encrypted calls such as reading the card number) and bunq's ServerPublicKey for the " +
+      "device. There is no listing endpoint, so store the id. Max 20 active devices per user.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        user_id: { type: "number", description: "ID of the provisioned user." },
+        client_public_key: {
+          type: "string",
+          description: "PEM public key of the device's RSA key pair (at least 2048 bits).",
+        },
+        description: {
+          type: "string",
+          description: "Description shown to the user to identify the device.",
+        },
+      },
+      required: ["user_id", "client_public_key", "description"],
+    },
+  },
+  {
+    name: "get_device",
+    description:
+      "Gets a registered device of a provisioned user, including its description and status " +
+      "(ACTIVE or OBSOLETE). A deactivated device stays readable.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        user_id: { type: "number", description: "ID of the provisioned user." },
+        device_id: { type: "number", description: "Device ID returned by register_device." },
+      },
+      required: ["user_id", "device_id"],
+    },
+  },
+  {
+    name: "deactivate_device",
+    description:
+      "Deactivates an active device of a provisioned user (e.g. a lost phone) by setting its " +
+      "status to OBSOLETE. bunq then refuses the device's calls. This cannot be undone; register " +
+      "a new device instead.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        user_id: { type: "number", description: "ID of the provisioned user." },
+        device_id: { type: "number", description: "Device ID returned by register_device." },
+      },
+      required: ["user_id", "device_id"],
+    },
+  },
+
   // ── Cards ─────────────────────────────────────────────────────────────────────
   {
     name: "create_credit_card",
@@ -772,7 +827,11 @@ export const TOOLS = [
   },
   {
     name: "get_card",
-    description: "Gets details of a specific card including status, limits, and expiry date.",
+    description:
+      "Gets details of a specific card including status, limits, and expiry date. On the partner " +
+      "API bunq encrypts this response for the user's registered device (X-Bunq-Device-Uuid), so " +
+      "only the device can read it. This MCP does not hold device keys: for a provisioned user's " +
+      "card the call fails with a 400.",
     inputSchema: {
       type: "object",
       properties: {
@@ -836,8 +895,10 @@ export const TOOLS = [
   {
     name: "create_card_pan",
     description:
-      "Generates and retrieves the primary account number (PAN) for a card. " +
-      "This is an encrypted endpoint — the request is end-to-end encrypted on top of TLS.",
+      "Generates and retrieves the primary account number (PAN) for a card. On the partner API " +
+      "bunq encrypts the card number for the user's registered device (X-Bunq-Device-Uuid), so it " +
+      "never reaches the partner backend. This MCP does not hold device keys: for a provisioned " +
+      "user's card the call fails with a 400.",
     inputSchema: {
       type: "object",
       properties: {
