@@ -45,6 +45,8 @@ tags:
   description: Read-only access to compliance and onboarding information requests for provisioned users
 - name: bunq.me Management
   description: Create and manage bunq.me payment request tabs for provisioned users
+- name: Device Management
+  description: Register, read and deactivate the end-user devices (anonymous devices) of provisioned users
 components:
   securitySchemes:
     InstallationAuth:
@@ -785,6 +787,54 @@ components:
           type: string
           description: The PAN of the card.
           example: "5412345678901234"
+    DeviceAnonymous:
+      type: object
+      description: |
+        A device that has no session of its own, such as the phone of a provisioned user. Your
+        server registers it for the user and relays its calls.
+      properties:
+        id:
+          type: integer
+          description: The ID of the device.
+          example: 42
+        created:
+          type: string
+          format: date-time
+          description: The moment the device was registered.
+          example: "2026-10-23 10:00:00.000000"
+        updated:
+          type: string
+          format: date-time
+          description: The moment the device changed last.
+          example: "2026-10-23 10:00:00.000000"
+        description:
+          type: string
+          description: The description of the device, as set at registration.
+          example: "Personal phone"
+        status:
+          type: string
+          description: |
+            The status of the device:
+            - `ACTIVE`: The device is registered and its calls are accepted.
+            - `OBSOLETE`: The device is deactivated. bunq refuses its calls. It stays readable.
+          example: "ACTIVE"
+    DeviceAnonymousPublicUuid:
+      type: object
+      properties:
+        public_uuid:
+          type: string
+          description: The public UUID of the registered device. Send it in `X-Bunq-Device-Uuid` on later calls.
+          example: "252e-fb1e-04b74214-b9e9467c3-c6d2fbf"
+    DeviceAnonymousServerPublicKey:
+      type: object
+      properties:
+        server_public_key:
+          type: string
+          description: bunq's public key for this device. It differs from the key you sent.
+          example: |
+            -----BEGIN PUBLIC KEY-----
+            ...
+            -----END PUBLIC KEY-----
     MasterCardAction:
       type: object
       properties:
@@ -1366,6 +1416,36 @@ components:
       schema:
         type: string
         example: "aG1hY3NoYTFiYXNlNjQ="
+    BunqDeviceUuid:
+      name: X-Bunq-Device-Uuid
+      in: header
+      required: false
+      description: |
+        The `public_uuid` of an active device registered for the user with
+        `POST /user/{userId}/device-anonymous`. Required when you act for a provisioned user on an
+        endpoint with device encryption: bunq encrypts the response for this device. Without it the
+        request gets a 400. An unknown, deactivated, or other user's device also gets a 400.
+        Not needed when you read your own card.
+      schema:
+        type: string
+        example: "252e-fb1e-04b74214-b9e9467c3-c6d2fbf"
+  headers:
+    BunqDeviceEncryptionKey:
+      description: |
+        Device encryption. Base64-encoded AES-256 key, RSA-encrypted with the public key of the
+        device in `X-Bunq-Device-Uuid` (or with your installation key when you read your own card).
+      schema:
+        type: string
+    BunqDeviceEncryptionIv:
+      description: Device encryption. Base64-encoded 16-byte AES initialization vector.
+      schema:
+        type: string
+    BunqDeviceEncryptionHmac:
+      description: |
+        Device encryption. Base64-encoded HMAC-SHA256 of the IV concatenated with the ciphertext,
+        keyed with the decrypted AES key. Verify it before decrypting the body.
+      schema:
+        type: string
 paths:
   /installation:
     post:
@@ -2770,9 +2850,17 @@ paths:
       summary: Get Card Details
       x-bunq-encryption-required: true
       description: |
-        🔒 **Encrypted endpoint** — the response is end-to-end encrypted. See the Encryption section.
-
         Get details of a specific card.
+
+        **Device encryption:** bunq always encrypts the response of this endpoint, so the card
+        details reach only the user's device and not your backend.
+        - When you act for a provisioned user, send the user's registered device in
+          `X-Bunq-Device-Uuid`. bunq encrypts the response for that device. Without the header the
+          request gets a 400.
+        - When you read your own card, bunq encrypts the response for your installation key.
+
+        The body on the wire is AES-256-CBC ciphertext. The key, IV and HMAC come in the
+        `X-Bunq-Device-Encryption-*` response headers. After decryption the body has the shape below.
       security:
       - SessionAuth: []
       - ClientSignature: []
@@ -2795,12 +2883,17 @@ paths:
       - *id006
       - *id007
       - *id008
-      - $ref: '#/components/parameters/BunqClientEncryptionIv'
-      - $ref: '#/components/parameters/BunqClientEncryptionKey'
-      - $ref: '#/components/parameters/BunqClientEncryptionHmac'
+      - $ref: '#/components/parameters/BunqDeviceUuid'
       responses:
         '200':
-          description: Card details
+          description: Card details (encrypted for the device; decrypted shape shown)
+          headers:
+            X-Bunq-Device-Encryption-Key:
+              $ref: '#/components/headers/BunqDeviceEncryptionKey'
+            X-Bunq-Device-Encryption-Iv:
+              $ref: '#/components/headers/BunqDeviceEncryptionIv'
+            X-Bunq-Device-Encryption-Hmac:
+              $ref: '#/components/headers/BunqDeviceEncryptionHmac'
           content:
             application/json:
               schema:
@@ -2818,6 +2911,16 @@ paths:
                         properties:
                           CardDebit:
                             $ref: '#/components/schemas/Card'
+        '400':
+          description: |
+            Bad request. Returned when you act for a user without `X-Bunq-Device-Uuid`
+            ("This endpoint only accepts a call of a registered device."), or with a device that is
+            unknown, deactivated, or registered for another user
+            ("Unable to read the request of this device.").
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
     put:
       tags:
       - Card Management
@@ -2937,9 +3040,18 @@ paths:
       summary: Create Primary Account Number
       x-bunq-encryption-required: true
       description: |
-        🔒 **Encrypted endpoint** — the response is end-to-end encrypted. See the Encryption section.
-
         Generate the primary account number (PAN) for a card.
+
+        **Device encryption:** bunq always encrypts the response of this endpoint, so the card
+        number reaches only the user's device and not your backend.
+        - When you act for a provisioned user, send the user's registered device in
+          `X-Bunq-Device-Uuid`. bunq encrypts the response for that device. Without the header the
+          request gets a 400.
+        - When you read the card number of your own card, bunq encrypts the response for your
+          installation key.
+
+        The body on the wire is AES-256-CBC ciphertext. The key, IV and HMAC come in the
+        `X-Bunq-Device-Encryption-*` response headers. After decryption the body has the shape below.
       security:
       - SessionAuth: []
       - ClientSignature: []
@@ -2962,12 +3074,17 @@ paths:
       - *id006
       - *id007
       - *id008
-      - $ref: '#/components/parameters/BunqClientEncryptionIv'
-      - $ref: '#/components/parameters/BunqClientEncryptionKey'
-      - $ref: '#/components/parameters/BunqClientEncryptionHmac'
+      - $ref: '#/components/parameters/BunqDeviceUuid'
       responses:
         '200':
-          description: Primary account number created successfully
+          description: Primary account number created successfully (encrypted for the device; decrypted shape shown)
+          headers:
+            X-Bunq-Device-Encryption-Key:
+              $ref: '#/components/headers/BunqDeviceEncryptionKey'
+            X-Bunq-Device-Encryption-Iv:
+              $ref: '#/components/headers/BunqDeviceEncryptionIv'
+            X-Bunq-Device-Encryption-Hmac:
+              $ref: '#/components/headers/BunqDeviceEncryptionHmac'
           content:
             application/json:
               schema:
@@ -2980,6 +3097,16 @@ paths:
                       properties:
                         CardPrimaryAccountNumber:
                           $ref: '#/components/schemas/CardPrimaryAccountNumber'
+        '400':
+          description: |
+            Bad request. Returned when you act for a user without `X-Bunq-Device-Uuid`
+            ("This endpoint only accepts a call of a registered device."), or with a device that is
+            unknown, deactivated, or registered for another user
+            ("Unable to read the request of this device.").
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /user/{userId}/card/{cardId}/generated-cvc2:
     post:
@@ -5581,6 +5708,256 @@ paths:
                     id: 1001
         '400':
           description: Bad request - invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /user/{userId}/device-anonymous:
+    post:
+      tags:
+      - Device Management
+      summary: Register Device
+      description: |
+        Register an end-user device for a provisioned user. Card secrets such as the card number
+        must reach only the user's device, not your backend, so the device holds its own key pair.
+
+        - The device creates an RSA key pair (at least 2048 bits) and keeps the private key.
+          Send the public key in `client_public_key`. bunq never receives the private key.
+        - bunq creates its own key pair for the device and returns its public key in `ServerPublicKey`.
+        - Store the `id` (to read or deactivate the device later) and the `public_uuid` (send it in
+          `X-Bunq-Device-Uuid` on calls with device encryption, such as reading the card number).
+          There is no listing endpoint, so keep the `id` of each device you register.
+        - A user can have at most 20 active devices. Deactivate one before registering another.
+        - Registration sends the user no "new device" email.
+
+        Rate limit: 500 requests per hour.
+      security:
+      - SessionAuth: []
+      - ClientSignature: []
+      parameters:
+      - name: userId
+        in: path
+        required: true
+        schema:
+          type: integer
+        description: ID of the provisioned user.
+      - *id001
+      - *id002
+      - *id003
+      - *id004
+      - *id005
+      - *id006
+      - *id007
+      - *id008
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - client_public_key
+              - description
+              properties:
+                client_public_key:
+                  type: string
+                  description: |
+                    The public key of the device in PEM format: the public part of the key pair the
+                    device created. RSA, at least 2048 bits. The device keeps the private key.
+                  example: |
+                    -----BEGIN PUBLIC KEY-----
+                    ...
+                    -----END PUBLIC KEY-----
+                description:
+                  type: string
+                  description: The description of the device, to show the user which device this is.
+                  example: "Personal phone"
+      responses:
+        '200':
+          description: Device registered successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  Response:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        Id:
+                          $ref: '#/components/schemas/Id'
+                        DeviceAnonymous:
+                          $ref: '#/components/schemas/DeviceAnonymousPublicUuid'
+                        ServerPublicKey:
+                          $ref: '#/components/schemas/DeviceAnonymousServerPublicKey'
+              example:
+                Response:
+                - Id:
+                    id: 42
+                - DeviceAnonymous:
+                    public_uuid: "252e-fb1e-04b74214-b9e9467c3-c6d2fbf"
+                - ServerPublicKey:
+                    server_public_key: "-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----\n"
+        '400':
+          description: |
+            Bad request. Returned when the public key is malformed or shorter than 2048 bits
+            ("The device public key is not valid."), or when the user already has 20 active devices.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: User not found, or you may not act for this user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /user/{userId}/device-anonymous/{deviceAnonymousId}:
+    get:
+      tags:
+      - Device Management
+      summary: Get Device
+      description: |
+        Get one registered device of a provisioned user. A deactivated device stays readable with
+        status `OBSOLETE`.
+
+        Rate limit: 1000 requests per hour.
+      security:
+      - SessionAuth: []
+      - ClientSignature: []
+      parameters:
+      - name: userId
+        in: path
+        required: true
+        schema:
+          type: integer
+        description: ID of the provisioned user.
+      - name: deviceAnonymousId
+        in: path
+        required: true
+        schema:
+          type: integer
+        description: ID of the device, as returned at registration.
+      - *id001
+      - *id002
+      - *id003
+      - *id004
+      - *id005
+      - *id006
+      - *id007
+      - *id008
+      responses:
+        '200':
+          description: Device details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  Response:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        DeviceAnonymous:
+                          $ref: '#/components/schemas/DeviceAnonymous'
+              example:
+                Response:
+                - DeviceAnonymous:
+                    id: 42
+                    created: "2026-10-23 10:00:00.000000"
+                    updated: "2026-10-23 10:00:00.000000"
+                    description: "Personal phone"
+                    status: "ACTIVE"
+        '404':
+          description: Device not found, or it does not belong to this user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    put:
+      tags:
+      - Device Management
+      summary: Deactivate Device
+      description: |
+        Deactivate an active device, for example when the user loses their phone. Set `status` to
+        `OBSOLETE`; no other value is accepted. After this, bunq refuses the calls of the device.
+        Deactivation cannot be undone: register a new device instead. Only an active device can be
+        deactivated.
+
+        Rate limit: 500 requests per hour.
+      security:
+      - SessionAuth: []
+      - ClientSignature: []
+      parameters:
+      - name: userId
+        in: path
+        required: true
+        schema:
+          type: integer
+        description: ID of the provisioned user.
+      - name: deviceAnonymousId
+        in: path
+        required: true
+        schema:
+          type: integer
+        description: ID of the device, as returned at registration.
+      - *id001
+      - *id002
+      - *id003
+      - *id004
+      - *id005
+      - *id006
+      - *id007
+      - *id008
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - status
+              properties:
+                status:
+                  type: string
+                  enum: [OBSOLETE]
+                  example: "OBSOLETE"
+                  description: Set to `OBSOLETE` to deactivate the device.
+            example:
+              status: "OBSOLETE"
+      responses:
+        '200':
+          description: Device deactivated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  Response:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        Id:
+                          $ref: '#/components/schemas/Id'
+              example:
+                Response:
+                - Id:
+                    id: 42
+        '400':
+          description: |
+            Bad request. Returned when `status` is missing or not `OBSOLETE`, or when the device is
+            not active ("Only an active device can be deactivated.").
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Device not found, or it does not belong to this user
           content:
             application/json:
               schema:

@@ -404,6 +404,29 @@ export async function handleTool(
       );
     }
 
+    // ── Devices ───────────────────────────────────────────────────────────────
+    case "register_device": {
+      const userId = num(args.user_id);
+      return await client.call("POST", `/user/${userId}/device-anonymous`, {
+        client_public_key: str(args.client_public_key),
+        description: str(args.description),
+      });
+    }
+
+    case "get_device": {
+      const userId = num(args.user_id);
+      const deviceId = num(args.device_id);
+      return await client.call("GET", `/user/${userId}/device-anonymous/${deviceId}`, null);
+    }
+
+    case "deactivate_device": {
+      const userId = num(args.user_id);
+      const deviceId = num(args.device_id);
+      return await client.call("PUT", `/user/${userId}/device-anonymous/${deviceId}`, {
+        status: "OBSOLETE",
+      });
+    }
+
     // ── Cards ─────────────────────────────────────────────────────────────────
     case "create_credit_card": {
       const userId = num(args.user_id);
