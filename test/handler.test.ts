@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { BunqClient } from "../src/bunq-client.ts";
-import { buildPath, handleTool, validateArgs } from "../src/handler.ts";
+import { buildPath, handleTool, hideSecret, validateArgs } from "../src/handler.ts";
 import { OPERATIONS } from "../src/operations.ts";
 import { TOOLS } from "../src/tools.ts";
 import { createFakeBunq, PARTNER_USER_ID, PROVISIONED_USER_ID } from "./fake-bunq.ts";
@@ -85,4 +85,54 @@ test("an OAuth tool uses the partner's own user id in the path", async () => {
   await handleTool("list_oauth_clients", {}, client);
 
   assert.equal(fake.allCall.at(-1)!.path, `/v1/user/${PARTNER_USER_ID}/oauth-client`);
+});
+
+test("create_user_session by provision_id reads the credential itself and hides it", async () => {
+  const { client, fake } = createClient();
+  fake.route((c) =>
+    c.path === "/v1/partner-user-provision/7"
+      ? { json: { Response: [{ PartnerUserProvision: { id: 7, status: "ACTIVE", credential: { token_value: "secret_cred" } } }] } }
+      : undefined
+  );
+
+  const session = (await handleTool("create_user_session", { provision_id: 7 }, client)) as Record<string, unknown>;
+  const provision = await handleTool("get_provision", { provision_id: 7 }, client);
+
+  assert.equal(session.user_id, PROVISIONED_USER_ID);
+  assert.match(fake.callsTo("/v1/session-server").at(-1)!.body.toString(), /secret_cred/);
+  assert.equal(JSON.stringify(provision).includes("secret_cred"), false);
+});
+
+test("create_user_session needs provision_id or credential_token", async () => {
+  const { client } = createClient();
+
+  await assert.rejects(handleTool("create_user_session", {}, client), /needs provision_id/);
+});
+
+test("card number and CVC are hidden from tool output", () => {
+  assert.deepEqual(hideSecret({ CardPrimaryAccountNumber: { primary_account_number: "5412345678901234" }, x: [{ cvc2: "123" }] }), {
+    CardPrimaryAccountNumber: { primary_account_number: "•••• 1234" },
+    x: [{ cvc2: "[hidden]" }],
+  });
+});
+
+test("an array given as a JSON string is parsed; a wrong type or enum value is refused", () => {
+  const filters = TOOL_BY_NAME.get("set_notification_filters")!;
+  const card = TOOL_BY_NAME.get("update_challenge_request")!;
+
+  assert.deepEqual(validateArgs(filters, { user_id: 1, filters: '[{"category":"PAYMENT"}]' }).filters, [{ category: "PAYMENT" }]);
+  assert.throws(() => validateArgs(filters, { user_id: 1, filters: "PAYMENT" }), /must be an array/);
+  assert.throws(() => validateArgs(card, { user_id: 1, challenge_request_id: 2, status: "OK" }), /must be one of/);
+  assert.equal(validateArgs(TOOL_BY_NAME.get("create_payment")!, { user_id: 1, account_id: 2, amount: 50, description: "d", counterparty_iban: "i" }).amount, "50");
+});
+
+test("upload_attachment refuses a file path and accepts a data URI", async () => {
+  const { client, fake } = createClient();
+  await handleTool("create_user_session", { credential_token: "cred" }, client);
+  const args = { user_id: PROVISIONED_USER_ID, description: "id", content_type: "image/png" };
+
+  await assert.rejects(handleTool("upload_attachment", { ...args, base64_content: "/Users/me/passport.png" }, client), /not a file path/);
+  await handleTool("upload_attachment", { ...args, base64_content: "data:image/png;base64,aGVsbG8=" }, client);
+
+  assert.equal(fake.allCall.at(-1)!.body.toString(), "hello");
 });

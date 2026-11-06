@@ -78,13 +78,12 @@ export const OPERATIONS: Record<string, Operation> = {
     method: "POST",
     path: "/partner-user-provision",
     scope: "partner",
-    body: (a) => ({
-      external_uuid: str(a.external_uuid),
-      user_verified_type: str(a.user_verified_type, "PARTNER_USER_PERSON"),
-      email: str(a.email),
-      phone_number: str(a.phone_number),
-      products: Array.isArray(a.products) ? a.products : ["USER_VERIFIED"],
-    }),
+    body: (a) =>
+      pick(a, ["email", "phone_number", "pointer", "date_of_birth", "country_of_residence"], {
+        external_uuid: str(a.external_uuid),
+        user_verified_type: str(a.user_verified_type, "PARTNER_USER_PERSON"),
+        products: a.products ?? ["USER_VERIFIED"],
+      }),
   },
   get_provision: { method: "GET", path: "/partner-user-provision/{provision_id}", scope: "partner" },
   list_provisions: { method: "GET", path: "/partner-user-provision", scope: "partner", query: ["status", "external_uuid"] },
@@ -110,7 +109,7 @@ export const OPERATIONS: Record<string, Operation> = {
     method: "POST",
     path: "/user/{user_id}/notification-filter-url",
     scope: "user",
-    body: (a) => ({ notification_filters: Array.isArray(a.filters) ? a.filters : [] }),
+    body: (a) => ({ notification_filters: a.filters }),
   },
   list_notification_failures: { method: "GET", path: "/user/{user_id}/notification-filter-failure", scope: "user" },
   retry_notification_failures: {
@@ -143,13 +142,13 @@ export const OPERATIONS: Record<string, Operation> = {
     method: "POST",
     path: "/user/{user_id}/tax-resident",
     scope: "user",
-    body: (a) => ({ tax_resident: Array.isArray(a.tax_residents) ? a.tax_residents : [] }),
+    body: (a) => ({ tax_resident: a.tax_residents }),
   },
   set_nationality: {
     method: "POST",
     path: "/user/{user_id}/nationality",
     scope: "user",
-    body: (a) => ({ all_nationality: Array.isArray(a.nationalities) ? a.nationalities : [] }),
+    body: (a) => ({ all_nationality: a.nationalities }),
   },
   start_identity_verification: {
     method: "POST",
@@ -178,6 +177,8 @@ export const OPERATIONS: Record<string, Operation> = {
         "document_country_of_issuance",
         "document_attachment_id",
         "document_back_attachment_id",
+        "document_number",
+        "document_expiry_date",
       ]),
   },
 
@@ -189,7 +190,11 @@ export const OPERATIONS: Record<string, Operation> = {
     method: "POST",
     path: "/user/{user_id}/monetary-account-bank",
     scope: "user",
-    body: (a) => ({ currency: str(a.currency, "EUR"), description: str(a.description, "Main Account") }),
+    body: (a) =>
+      pick(a, ["daily_limit", "display_name", "country_iban"], {
+        currency: str(a.currency, "EUR"),
+        description: str(a.description, "Main Account"),
+      }),
   },
   create_external_account: {
     method: "POST",
@@ -278,7 +283,7 @@ export const OPERATIONS: Record<string, Operation> = {
     method: "GET",
     path: "/user/{user_id}/user-information-inquiry",
     scope: "user",
-    query: ["status", "purpose"],
+    query: ["status", "type", "purpose", "fulfillment_type"],
   },
   get_user_inquiry: { method: "GET", path: "/user/{user_id}/user-information-inquiry/{inquiry_id}", scope: "user" },
   respond_to_inquiry_entry: {
@@ -337,7 +342,7 @@ export const OPERATIONS: Record<string, Operation> = {
     method: "PUT",
     path: "/user/{user_id}/user-onboarding/{onboarding_id}",
     scope: "user",
-    body: (a) => pick(a, ["user_status_desired", "user_verification_status_desired"]),
+    body: (a) => pick(a, ["type", "user_status_desired", "user_verification_status_desired"]),
   },
   list_bank_accounts: { method: "GET", path: "/user/{user_id}/monetary-account-bank", scope: "user" },
   get_bank_account: { method: "GET", path: "/user/{user_id}/monetary-account-bank/{account_id}", scope: "user" },
