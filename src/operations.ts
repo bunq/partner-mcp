@@ -366,4 +366,18 @@ export const OPERATIONS: Record<string, Operation> = {
     scope: "user",
     body: (a) => pick(a, ["status", "monetary_account_id"]),
   },
+  // Devices of provisioned users (device-anonymous)
+  register_device: {
+    method: "POST",
+    path: "/user/{user_id}/device-anonymous",
+    scope: "user",
+    body: (a) => pick(a, ["client_public_key", "description"]),
+  },
+  get_device: { method: "GET", path: "/user/{user_id}/device-anonymous/{device_id}", scope: "user" },
+  deactivate_device: {
+    method: "PUT",
+    path: "/user/{user_id}/device-anonymous/{device_id}",
+    scope: "user",
+    body: () => ({ status: "OBSOLETE" }),
+  },
 };

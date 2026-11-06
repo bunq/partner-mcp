@@ -112,7 +112,7 @@ Then restart Claude Desktop.
 
 ## Available tools
 
-The full API documentation — covering auth, OAuth, user provision, onboarding & KYC, webhooks, monetary accounts, payments, cards, and compliance — lives in GitBook:
+The full API documentation — covering auth, OAuth, user provision, onboarding & KYC, webhooks, monetary accounts, payments, devices, cards, and compliance — lives in GitBook:
 
 📚 **[Partner Onboarding API docs](https://partner.doc.bunq.com/)**
 
