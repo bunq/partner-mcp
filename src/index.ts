@@ -31,6 +31,13 @@ import { handleTool } from "./handler.ts";
 const API_KEY = process.env.BUNQ_API_KEY ?? "";
 const ENV = (process.env.BUNQ_ENV ?? "sandbox") as BunqEnv;
 const TIMEOUT_MS = process.env.BUNQ_TIMEOUT_MS ? Number(process.env.BUNQ_TIMEOUT_MS) : undefined;
+
+if (TIMEOUT_MS === undefined || (Number.isInteger(TIMEOUT_MS) && TIMEOUT_MS > 0)) {
+  // Default timeout, or a valid number of milliseconds.
+} else {
+  process.stderr.write(`Error: BUNQ_TIMEOUT_MS must be a positive whole number of milliseconds, got "${process.env.BUNQ_TIMEOUT_MS}".\n`);
+  process.exit(1);
+}
 const ENVS_SUPPORTED: BunqEnv[] = ["sandbox", "production"];
 
 if (ENVS_SUPPORTED.includes(ENV)) {
@@ -102,6 +109,11 @@ async function dispatch(req: McpRequest): Promise<void> {
             version: "1.0.0",
           },
         });
+        break;
+      }
+
+      case "ping": {
+        ok(id, {});
         break;
       }
 

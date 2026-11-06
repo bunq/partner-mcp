@@ -176,3 +176,100 @@ test("an encrypted GET sends no body", async () => {
 
   assert.equal(fake.allCall.at(-1)!.body.length, 0);
 });
+
+test("parallel calls on a fresh client share one installation", async () => {
+  const { client, fake } = createClient();
+
+  await Promise.all([1, 2, 3].map(() => client.call("GET", "/partner-user-provision")));
+
+  assert.equal(fake.callsTo("/v1/installation").length, 1);
+  assert.equal(fake.callsTo("/v1/session-server").length, 1);
+});
+
+test("parallel 401s share one session renewal", async () => {
+  const fake = createFakeBunq(API_KEY);
+  const allTokenRefused = new Set<string>();
+  fake.route((c) => {
+    if (c.path.startsWith("/v1/user/100/card")) {
+      const token = c.headers["X-Bunq-Client-Authentication"];
+      if (allTokenRefused.size === 0 || allTokenRefused.has(token)) {
+        allTokenRefused.add(token);
+        return { status: 401, json: { Error: [{ error_description: "expired" }] }, isSigned: false };
+      } else {
+        return undefined;
+      }
+    } else {
+      return undefined;
+    }
+  });
+  const { client } = createClient(fake);
+  await client.ensureSession();
+
+  await Promise.all([1, 2, 3].map((n) => client.callForUser(PARTNER_USER_ID, "GET", `/user/100/card/${n}`)));
+
+  assert.equal(fake.callsTo("/v1/session-server").length, 2);
+});
+
+test("a 500 during renewal keeps the installation and the error", async () => {
+  const fake = createFakeBunq(API_KEY);
+  let countSession = 0;
+  fake.route((c) => {
+    if (c.path === "/v1/session-server") {
+      countSession += 1;
+      return countSession > 1 ? { status: 500, json: { Error: [{ error_description: "server busy" }] }, isSigned: false } : undefined;
+    } else if (c.path === "/v1/user/100/card") {
+      return { status: 401, json: { Error: [{ error_description: "expired" }] }, isSigned: false };
+    } else {
+      return undefined;
+    }
+  });
+  const { client } = createClient(fake);
+
+  await assert.rejects(client.callForUser(PARTNER_USER_ID, "GET", "/user/100/card"), /500: server busy/);
+  assert.equal(fake.callsTo("/v1/installation").length, 1);
+});
+
+test("a signed error response with a wrong signature is refused", async () => {
+  const fake = createFakeBunq(API_KEY);
+  fake.route((c) =>
+    c.path === "/v1/user/100/card"
+      ? { status: 400, json: { Error: [{ error_description: "fake" }] }, isSignatureBroken: true }
+      : undefined
+  );
+  const { client } = createClient(fake);
+
+  await assert.rejects(client.callForUser(PARTNER_USER_ID, "GET", "/user/100/card"), /signature is not valid/);
+});
+
+test("state file: two processes keep each other's user sessions", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "bunq-mcp-"));
+  const stateFile = path.join(dir, "state.json");
+  const fake = createFakeBunq(API_KEY);
+  const first = createClient(fake, { stateFile });
+  const second = createClient(fake, { stateFile });
+
+  await first.client.createUserSession("credential_a");
+  await second.client.ensureSession();
+
+  const stored = JSON.parse(fs.readFileSync(stateFile, "utf8"));
+  assert.equal(Object.keys(stored.users).length, 1);
+  assert.ok(stored.partner);
+});
+
+test("state file of another environment or key stays untouched", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "bunq-mcp-"));
+  const stateFile = path.join(dir, "state.json");
+  const bindingSandbox = { env: "sandbox", apiKeyHash: "aaa" };
+  const fakeA = createFakeBunq(API_KEY);
+  await new BunqClient(API_KEY, "sandbox", { fetch: fakeA.fetch, stateStore: new StateStoreFile(stateFile, bindingSandbox) }).ensureSession();
+  const contentBefore = fs.readFileSync(stateFile, "utf8");
+
+  const fakeB = createFakeBunq("other_key");
+  const other = new BunqClient("other_key", "sandbox", {
+    fetch: fakeB.fetch,
+    stateStore: new StateStoreFile(stateFile, { env: "sandbox", apiKeyHash: "bbb" }),
+  });
+  await other.ensureSession();
+
+  assert.equal(fs.readFileSync(stateFile, "utf8"), contentBefore);
+});
