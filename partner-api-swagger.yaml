@@ -1263,10 +1263,32 @@ components:
         `POST /user/{userId}/device-anonymous`. Required when you act for a provisioned user on an
         endpoint with device encryption: bunq encrypts the response for this device. Without it the
         request gets a 400. An unknown, deactivated, or other user's device also gets a 400.
-        Not needed when you read your own card.
+        Not needed when you read your own card. Also part of the device signature on a payment.
       schema:
         type: string
         example: "252e-fb1e-04b74214-b9e9467c3-c6d2fbf"
+    BunqDeviceTimestamp:
+      name: X-Bunq-Device-Timestamp
+      in: header
+      required: false
+      description: |
+        Device signature. The current time as Unix seconds. bunq accepts it from 15 seconds in the
+        past to 5 seconds in the future. Send it together with `X-Bunq-Device-Uuid` and
+        `X-Bunq-Device-Signature`.
+      schema:
+        type: string
+        example: "1762423200"
+    BunqDeviceSignature:
+      name: X-Bunq-Device-Signature
+      in: header
+      required: false
+      description: |
+        Device signature. Base64 SHA256-with-RSA signature, made with the device's private key on
+        the user's device, over this string:
+        `<X-Bunq-Device-Uuid>` + `\n` + `<X-Bunq-Device-Timestamp>` + `\n` + `<request body>`.
+        The body must be byte-identical to the body you send.
+      schema:
+        type: string
   headers:
     BunqDeviceEncryptionKey:
       description: |
@@ -4134,10 +4156,26 @@ paths:
         Create a new payment from a monetary account to another IBAN.
 
         **IBAN Payment Features:**
-        - For Users belonging to Partners, only internal transfers are allowed between User <> Partner Monetary Accounts
+        - For a provisioned user without the device signature, only payments to your own accounts are allowed (see below)
         - For Partners with PSD2 access, external transfers to any IBAN are allowed
         - Description limited to 140 characters
         - Optional merchant reference for tracking
+
+        **Device signature of the user:**
+        When you pay for a provisioned user to anyone other than your own account, the user's
+        device must sign the payment. Send `X-Bunq-Device-Uuid`, `X-Bunq-Device-Timestamp` and
+        `X-Bunq-Device-Signature`. Without them the request gets a 401.
+
+        | Payment for a user | Device signature optional for you | Device signature required for you |
+        |---|---|---|
+        | To your own account, not signed by the device | allowed | 401 |
+        | To anyone else, not signed by the device | 401 | 401 |
+        | Signed by the device | allowed | allowed |
+
+        An external IBAN always needs the device signature, also when it belongs to you: its
+        counterparty is a bunq settlement account.
+
+        How to create the signature on the device: see the **Sign a Request with the Device** guide.
       security:
       - SessionAuth: []
       - ClientSignature: []
@@ -4145,6 +4183,7 @@ paths:
       - name: userId
         in: path
         required: true
+        description: ID of the provisioned user, or your own user ID.
         schema:
           type: integer
       - name: accountId
@@ -4160,6 +4199,9 @@ paths:
       - *id006
       - *id007
       - *id008
+      - $ref: '#/components/parameters/BunqDeviceUuid'
+      - $ref: '#/components/parameters/BunqDeviceTimestamp'
+      - $ref: '#/components/parameters/BunqDeviceSignature'
       requestBody:
         required: true
         content:
@@ -4274,6 +4316,21 @@ paths:
                 Error:
                 - error_description: "Invalid IBAN format"
                   error_description_translated: "The IBAN format is not valid"
+        '401':
+          description: |
+            The payment needs the device signature of the user, and the request has none. See the
+            device signature section above.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                Error:
+                - error_description: "Request device signature is required for this operation. For more information, visit the following documentation pages."
+                  error_description_translated: "Request device signature is required for this operation. For more information, visit the following documentation pages."
+                  error_additional_parameter:
+                  - url_documentation: "https://doc.bunq.com/#/signing"
+
     get:
       tags:
       - Payment Management
