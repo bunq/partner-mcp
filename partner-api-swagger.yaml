@@ -1644,7 +1644,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
-  /oauth-client:
+  /user/{userId}/oauth-client:
     post:
       tags:
       - OAuth Management
@@ -1654,6 +1654,12 @@ paths:
       - SessionAuth: []
       - ClientSignature: []
       parameters:
+      - name: userId
+        in: path
+        required: true
+        description: ID of your partner user (the UserCompany returned by session-server).
+        schema:
+          type: integer
       - *id001
       - *id002
       - *id003
@@ -1698,6 +1704,12 @@ paths:
       - SessionAuth: []
       - ClientSignature: []
       parameters:
+      - name: userId
+        in: path
+        required: true
+        description: ID of your partner user (the UserCompany returned by session-server).
+        schema:
+          type: integer
       - *id001
       - *id002
       - *id003
@@ -1724,7 +1736,7 @@ paths:
                   Pagination:
                     $ref: '#/components/schemas/Pagination'
 
-  /oauth-client/{oauthClientId}:
+  /user/{userId}/oauth-client/{oauthClientId}:
     get:
       tags:
       - OAuth Management
@@ -1734,6 +1746,12 @@ paths:
       - SessionAuth: []
       - ClientSignature: []
       parameters:
+      - name: userId
+        in: path
+        required: true
+        description: ID of your partner user (the UserCompany returned by session-server).
+        schema:
+          type: integer
       - name: oauthClientId
         in: path
         required: true
@@ -1771,6 +1789,12 @@ paths:
       - SessionAuth: []
       - ClientSignature: []
       parameters:
+      - name: userId
+        in: path
+        required: true
+        description: ID of your partner user (the UserCompany returned by session-server).
+        schema:
+          type: integer
       - name: oauthClientId
         in: path
         required: true
@@ -1802,6 +1826,60 @@ paths:
       responses:
         '200':
           description: OAuth client updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  Response:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Id'
+
+  /user/{userId}/oauth-client/{oauthClientId}/callback-url:
+    post:
+      tags:
+      - OAuth Management
+      summary: Register OAuth Callback URL
+      description: Register a callback URL for an OAuth client. The OAuth flow only redirects to a registered URL.
+      security:
+      - SessionAuth: []
+      - ClientSignature: []
+      parameters:
+      - name: userId
+        in: path
+        required: true
+        description: ID of your partner user (the UserCompany returned by session-server).
+        schema:
+          type: integer
+      - name: oauthClientId
+        in: path
+        required: true
+        schema:
+          type: integer
+      - *id001
+      - *id002
+      - *id003
+      - *id004
+      - *id005
+      - *id006
+      - *id007
+      - *id008
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [url]
+              properties:
+                url:
+                  type: string
+                  example: "https://www.example.com/oauth/callback"
+                  description: The callback URL.
+      responses:
+        '200':
+          description: Callback URL registered successfully
           content:
             application/json:
               schema:

@@ -90,7 +90,7 @@ Then restart Claude Desktop.
 
 The full API documentation — covering auth, OAuth, user provision, onboarding & KYC, webhooks, monetary accounts, payments, cards, and compliance — lives in GitBook:
 
-📚 **[Partner Onboarding API docs](https://lexy.gitbook.io/partner-onboarding-api-docs/2xC1d0lJp5ubEkda2NxQ)**
+📚 **[Partner Onboarding API docs](https://partner.doc.bunq.com/)**
 
 ## Project structure
 
@@ -110,6 +110,6 @@ partner-mcp/
 
 ## Support
 
-- 📚 [Full documentation](https://lexy.gitbook.io/partner-onboarding-api-docs/2xC1d0lJp5ubEkda2NxQ)
+- 📚 [Full documentation](https://partner.doc.bunq.com/)
 - 🐛 [Open an issue](https://github.com/bunq/partner-mcp/issues)
 - 💬 [bunq Together](https://together.bunq.com)
