@@ -3,6 +3,10 @@
 // Input schemas use JSON Schema (draft-07) as required by MCP.
 // Source of truth: https://partner.doc.bunq.com/
 
+const DESCRIPTION_USER_ID =
+  "ID of the provisioned user: the user_id that create_user_session returns. The call uses that " +
+  "user's session, so call create_user_session first. Your own partner user id also works.";
+
 export const TOOLS = [
 
   // ── Session ─────────────────────────────────────────────────────────────────
@@ -157,10 +161,11 @@ export const TOOLS = [
   {
     name: "create_user_session",
     description:
-      "Creates a session on behalf of a provisioned user using their credential.token_value " +
-      "(obtained from get_provision when status=ACTIVE). Returns a session token and " +
-      "UserApiKey.id — use this session token for all subsequent calls on behalf of that user. " +
-      "Must be called within 1h (sandbox) / 4h (production) of the token being issued.",
+      "Creates a session for a provisioned user with their credential.token_value (from get_provision " +
+      "when status=ACTIVE). The MCP server keeps the session; the token is not returned. Returns " +
+      "user_id (use it for every per-user tool) and user_api_key_id (use it only for the user's " +
+      "webhooks in set_notification_filters). Call it within 1h (sandbox) / 4h (production) of " +
+      "the token being issued.",
     inputSchema: {
       type: "object",
       properties: {
@@ -184,7 +189,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "ID of the provisioned user." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
       },
       required: ["user_id"],
     },
@@ -197,7 +202,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "ID of the provisioned user." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
       },
       required: ["user_id"],
     },
@@ -215,7 +220,12 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "User ID (use UserApiKey.id for provisioned users)." },
+        user_id: {
+          type: "number",
+          description:
+            "For a provisioned user's webhooks: the user_api_key_id that create_user_session returns. " +
+            "For your own webhooks: your partner user id.",
+        },
         filters: {
           type: "array",
           description: "Full list of notification filters to set.",
@@ -266,7 +276,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "User ID who owns the failed notifications." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
         failure_ids: {
           type: "string",
           description: "Comma-separated failure IDs to retry (e.g. '123,456,789').",
@@ -283,7 +293,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "ID of the provisioned user." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
         street: { type: "string", description: "Street name." },
         house_number: { type: "string", description: "House number." },
         postal_code: { type: "string", description: "Postal code (e.g. 1111 AA)." },
@@ -299,7 +309,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "ID of the provisioned user." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
         street: { type: "string", description: "Street name." },
         house_number: { type: "string", description: "House number." },
         postal_code: { type: "string", description: "Postal code." },
@@ -316,7 +326,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "ID of the provisioned user." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
         first_name: { type: "string", description: "First name." },
         middle_name: { type: "string", description: "Middle name (optional)." },
         last_name: { type: "string", description: "Last name." },
@@ -332,7 +342,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "ID of the provisioned user." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
         tax_residents: {
           type: "array",
           description: "List of tax residencies.",
@@ -357,7 +367,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "ID of the provisioned user." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
         nationalities: {
           type: "array",
           items: { type: "string" },
@@ -376,7 +386,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "ID of the provisioned user." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
         purpose: {
           type: "string",
           enum: ["VERIFICATION"],
@@ -401,7 +411,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "ID of the provisioned user." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
         session_id: { type: "number", description: "ID of the identity verification session." },
       },
       required: ["user_id", "session_id"],
@@ -415,7 +425,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "ID of the provisioned user." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
         session_id: { type: "number", description: "ID of the identity verification session." },
       },
       required: ["user_id", "session_id"],
@@ -429,7 +439,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "ID of the provisioned user." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
         document_type: { type: "string", description: "Document type (e.g. CRYPTO_KYC_QUESTIONNAIRE)." },
         document_country_of_issuance: {
           type: "string",
@@ -456,7 +466,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "ID of the provisioned user." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
         description: { type: "string", description: "Human-readable description of the file." },
         content_type: {
           type: "string",
@@ -478,7 +488,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "User ID." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
         attachment_id: { type: "number", description: "Attachment ID." },
       },
       required: ["user_id", "attachment_id"],
@@ -493,7 +503,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "ID of the user." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
         currency: { type: "string", description: "ISO-4217 currency code.", default: "EUR" },
         description: { type: "string", description: "Account display name.", default: "Main Account" },
       },
@@ -507,7 +517,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "ID of the user." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
         currency: { type: "string", description: "ISO-4217 currency code (non-EUR)." },
         service: {
           type: "string",
@@ -527,7 +537,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "User ID." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
       },
       required: ["user_id"],
     },
@@ -538,7 +548,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "User ID." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
         account_id: { type: "number", description: "Monetary account ID." },
       },
       required: ["user_id", "account_id"],
@@ -553,7 +563,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "User ID." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
         account_id: { type: "number", description: "Monetary account ID." },
         description: { type: "string", description: "New account display name." },
         daily_limit: {
@@ -591,7 +601,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "Sending user's ID." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
         account_id: { type: "number", description: "Source monetary account ID." },
         amount: { type: "string", description: "Amount as decimal string (e.g. '10.00')." },
         currency: { type: "string", description: "ISO-4217 currency code.", default: "EUR" },
@@ -612,7 +622,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "User ID." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
         account_id: { type: "number", description: "Monetary account ID." },
         payment_id: { type: "number", description: "Payment ID." },
       },
@@ -625,7 +635,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "User ID." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
         account_id: { type: "number", description: "Monetary account ID." },
       },
       required: ["user_id", "account_id"],
@@ -644,7 +654,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "ID of the provisioned user." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
         account_id: { type: "number", description: "Monetary account the tab collects into." },
         amount: { type: "string", description: "Amount inquired as decimal string (e.g. '10.00')." },
         currency: { type: "string", description: "ISO-4217 currency code.", default: "EUR" },
@@ -669,7 +679,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "User ID." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
         account_id: { type: "number", description: "Monetary account ID." },
         bunqme_tab_id: { type: "number", description: "bunq.me tab ID." },
       },
@@ -682,7 +692,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "User ID." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
         account_id: { type: "number", description: "Monetary account ID." },
       },
       required: ["user_id", "account_id"],
@@ -696,7 +706,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "User ID." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
         account_id: { type: "number", description: "Monetary account ID." },
         bunqme_tab_id: { type: "number", description: "bunq.me tab ID." },
         status: {
@@ -718,7 +728,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "User ID." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
         second_line: { type: "string", description: "Second line of text on the card (max 17 chars)." },
         name_on_card: { type: "string", description: "Name as it appears on the card." },
         product_type: {
@@ -748,7 +758,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "User ID." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
         second_line: { type: "string", description: "Second line of text on the card (max 17 chars)." },
         name_on_card: { type: "string", description: "Name as it appears on the card." },
         product_type: { type: "string", description: "Card product type (partner-specific value)." },
@@ -776,7 +786,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "User ID." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
         card_id: { type: "number", description: "Card ID." },
       },
       required: ["user_id", "card_id"],
@@ -788,7 +798,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "User ID." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
       },
       required: ["user_id"],
     },
@@ -801,7 +811,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "User ID." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
         card_id: { type: "number", description: "Card ID." },
         status: {
           type: "string",
@@ -841,7 +851,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "User ID." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
         card_id: { type: "number", description: "Card ID." },
       },
       required: ["user_id", "card_id"],
@@ -855,7 +865,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "User ID." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
         card_id: { type: "number", description: "Card ID." },
         type: {
           type: "string",
@@ -873,7 +883,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "User ID." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
         card_id: { type: "number", description: "Card ID." },
       },
       required: ["user_id", "card_id"],
@@ -886,7 +896,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "User ID." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
         card_id: { type: "number", description: "Card ID." },
         generated_cvc2_id: { type: "number", description: "Generated CVC2 ID." },
       },
@@ -903,7 +913,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "ID of the provisioned user." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
         status: {
           type: "string",
           enum: ["EXPECTING_REPLY_FROM_USER", "EXPECTING_REPLY_FROM_BUNQ", "FINALIZED"],
@@ -924,7 +934,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "User ID." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
         inquiry_id: { type: "number", description: "Inquiry ID." },
       },
       required: ["user_id", "inquiry_id"],
@@ -939,7 +949,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "ID of the provisioned user." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
         inquiry_id: { type: "number", description: "Inquiry ID." },
         entry_id: { type: "number", description: "Entry ID within the inquiry." },
         all_attachment_id: {
