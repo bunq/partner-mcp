@@ -4174,6 +4174,8 @@ paths:
 
         An external IBAN always needs the device signature, also when it belongs to you: its
         counterparty is a bunq settlement account.
+
+        How to create the signature on the device: see the **Sign a Request with the Device** guide.
       security:
       - SessionAuth: []
       - ClientSignature: []
