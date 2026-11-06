@@ -12,18 +12,33 @@
  * Required env vars:
  *   BUNQ_API_KEY   — Your bunq Partner API key
  *   BUNQ_ENV       — "sandbox" (default) or "production"
+ *
+ * Optional env vars:
+ *   BUNQ_PERSIST_STATE — "true" or "false". Keeps keys and sessions in a local file across
+ *                        restarts. Default: true for sandbox, false for production.
+ *   BUNQ_STATE_FILE    — Path of that file. Default: ~/.bunq-partner-mcp/state-<env>-<key hash>.json
+ *   BUNQ_TIMEOUT_MS    — HTTP timeout per call. Default: 30000.
  */
 
-import { readFileSync } from "fs";
 import { createInterface } from "readline";
-import { BunqClient, type BunqEnv } from "./bunq-client.js";
-import { TOOLS } from "./tools.js";
-import { handleTool } from "./handler.js";
+import { BunqClient, type BunqEnv } from "./bunq-client.ts";
+import { createStateStoreFromEnv } from "./state-store.ts";
+import { TOOLS } from "./tools.ts";
+import { handleTool } from "./handler.ts";
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
 const API_KEY = process.env.BUNQ_API_KEY ?? "";
 const ENV = (process.env.BUNQ_ENV ?? "sandbox") as BunqEnv;
+const TIMEOUT_MS = process.env.BUNQ_TIMEOUT_MS ? Number(process.env.BUNQ_TIMEOUT_MS) : undefined;
+const ENVS_SUPPORTED: BunqEnv[] = ["sandbox", "production"];
+
+if (ENVS_SUPPORTED.includes(ENV)) {
+  // Supported environment.
+} else {
+  process.stderr.write(`Error: BUNQ_ENV must be "sandbox" or "production", got "${ENV}".\n`);
+  process.exit(1);
+}
 
 if (!API_KEY) {
   process.stderr.write(
@@ -63,9 +78,12 @@ function err(id: string | number | null, code: number, message: string, data?: u
   send({ jsonrpc: "2.0", id, error: { code, message, data } });
 }
 
-// ─── Client (lazily initialised) ─────────────────────────────────────────────
+// ─── Client (session is created on the first call) ───────────────────────────
 
-const client = new BunqClient(API_KEY, ENV);
+const client = new BunqClient(API_KEY, ENV, {
+  stateStore: createStateStoreFromEnv(process.env, ENV, API_KEY),
+  timeoutMs: TIMEOUT_MS,
+});
 
 // ─── Method handlers ──────────────────────────────────────────────────────────
 
@@ -139,7 +157,11 @@ async function dispatch(req: McpRequest): Promise<void> {
       }
 
       default: {
-        err(id, -32601, `Method not found: ${method}`);
+        if (id === undefined || id === null) {
+          // A notification has no id, and JSON-RPC forbids a response to it.
+        } else {
+          err(id, -32601, `Method not found: ${method}`);
+        }
       }
     }
   } catch (e) {

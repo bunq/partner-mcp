@@ -1,544 +1,155 @@
-import { BunqClient } from "./bunq-client.js";
+import { BunqClient } from "./bunq-client.ts";
+import { OPERATIONS, isPresent, type Args, type Operation } from "./operations.ts";
+import { TOOLS } from "./tools.ts";
 
-type Args = Record<string, unknown>;
+const PATH_PLACEHOLDER = /\{([a-z_0-9]+)\}/g;
+const PLACEHOLDER_PARTNER_USER_ID = "partner_user_id";
 
-function str(v: unknown, fallback = ""): string {
-  return typeof v === "string" ? v : fallback;
-}
-function num(v: unknown): number {
-  return typeof v === "number" ? v : Number(v);
-}
-function arr<T>(v: unknown, fallback: T[]): T[] {
-  return Array.isArray(v) ? (v as T[]) : fallback;
-}
-function obj(v: unknown): Record<string, unknown> {
-  return v && typeof v === "object" && !Array.isArray(v)
-    ? (v as Record<string, unknown>)
-    : {};
+interface PropertySchema {
+  type?: string;
 }
 
-// ─── Handler ──────────────────────────────────────────────────────────────────
+export interface ToolDefinition {
+  readonly name: string;
+  readonly inputSchema: {
+    readonly properties: Readonly<Record<string, PropertySchema>>;
+    readonly required?: readonly string[];
+  };
+}
 
-export async function handleTool(
-  name: string,
-  args: Args,
-  client: BunqClient
-): Promise<unknown> {
-  switch (name) {
+const TOOL_BY_NAME = new Map<string, ToolDefinition>(
+  (TOOLS as readonly ToolDefinition[]).map((tool) => [tool.name, tool])
+);
 
-    // ── Session ───────────────────────────────────────────────────────────────
-    case "get_session_info": {
-      await client.ensureSession();
-      return {
-        authenticated: client.isAuthenticated,
-        environment: client.environment,
-        user_id: client.currentUserId,
-        message: `Connected to bunq ${client.environment} as user ${client.currentUserId}`,
-      };
+/** Tools that are not a single API call, so they have no entry in OPERATIONS. */
+const TOOL_CUSTOM: Record<string, (args: Args, client: BunqClient) => Promise<unknown>> = {
+  get_session_info: async (_args, client) => {
+    await client.ensureSession();
+    return {
+      authenticated: client.isAuthenticated,
+      environment: client.environment,
+      user_id: client.currentUserId,
+      user_ids_with_session: client.userIdsWithSession,
+      message: `Connected to bunq ${client.environment} as user ${client.currentUserId}`,
+    };
+  },
+
+  refresh_session: async (_args, client) => {
+    await client.refreshSession();
+    return {
+      message: `Session refreshed. Authenticated as user ${client.currentUserId} on ${client.environment}`,
+      user_id: client.currentUserId,
+    };
+  },
+
+  create_user_session: async (args, client) => {
+    const { userId, userApiKeyId } = await client.createUserSession(String(args.credential_token));
+    return {
+      user_id: userId,
+      user_api_key_id: userApiKeyId,
+      message:
+        `Session created for provisioned user ${userId}. Pass user_id ${userId} to the per-user tools. ` +
+        `Only set_notification_filters for this user's webhooks takes user_api_key_id ${userApiKeyId}.`,
+    };
+  },
+
+  upload_attachment: async (args, client) =>
+    client.uploadAttachment(
+      Number(args.user_id),
+      String(args.description),
+      isPresent(args.content_type) ? String(args.content_type) : "image/jpeg",
+      String(args.base64_content)
+    ),
+};
+
+export function determineAllToolNameCustom(): string[] {
+  return Object.keys(TOOL_CUSTOM);
+}
+
+// ─── Entry point ──────────────────────────────────────────────────────────────
+
+export async function handleTool(name: string, args: Args, client: BunqClient): Promise<unknown> {
+  const tool = TOOL_BY_NAME.get(name);
+
+  if (tool === undefined) {
+    throw new Error(`Unknown tool: ${name}`);
+  } else {
+    const argsValid = validateArgs(tool, args);
+    const custom = TOOL_CUSTOM[name];
+    const operation = OPERATIONS[name];
+
+    if (custom) {
+      return custom(argsValid, client);
+    } else if (operation) {
+      return executeOperation(operation, argsValid, client);
+    } else {
+      throw new Error(`Tool ${name} has no implementation`);
     }
-
-    case "refresh_session": {
-      await client.refreshSession();
-      return {
-        message: `Session refreshed. Authenticated as user ${client.currentUserId} on ${client.environment}`,
-        user_id: client.currentUserId,
-      };
-    }
-
-    // ── OAuth ─────────────────────────────────────────────────────────────────
-    case "create_oauth_client": {
-      return await client.call("POST", `/user/${client.currentUserId}/oauth-client`, {});
-    }
-
-    case "list_oauth_clients": {
-      return await client.call("GET", `/user/${client.currentUserId}/oauth-client`, null);
-    }
-
-    case "get_oauth_client": {
-      const clientId = num(args.oauth_client_id);
-      return await client.call("GET", `/user/${client.currentUserId}/oauth-client/${clientId}`, null);
-    }
-
-    case "register_oauth_callback_url": {
-      const clientId = num(args.oauth_client_id);
-      return await client.call(
-        "POST",
-        `/user/${client.currentUserId}/oauth-client/${clientId}/callback-url`,
-        { url: str(args.url) }
-      );
-    }
-
-    // ── Provisions ────────────────────────────────────────────────────────────
-    case "create_provision": {
-      // Correct request body per docs (not the old pointer:{type,value} format)
-      const body: Record<string, unknown> = {
-        external_uuid: str(args.external_uuid),
-        user_verified_type: str(args.user_verified_type, "PARTNER_USER_PERSON"),
-        email: str(args.email),
-        phone_number: str(args.phone_number),
-        products: arr(args.products, ["USER_VERIFIED"]),
-      };
-      return await client.call("POST", "/partner-user-provision", body);
-    }
-
-    case "get_provision": {
-      const id = num(args.provision_id);
-      return await client.call("GET", `/partner-user-provision/${id}`, null);
-    }
-
-    case "list_provisions": {
-      const params = new URLSearchParams();
-      if (args.status) params.set("status", str(args.status));
-      if (args.external_uuid) params.set("external_uuid", str(args.external_uuid));
-      const qs = params.toString() ? `?${params.toString()}` : "";
-      return await client.call("GET", `/partner-user-provision${qs}`, null);
-    }
-
-    case "close_provision": {
-      // Correct status value per docs: CANCELLED (not PENDING_PROCESS_CLOSURE)
-      const id = num(args.provision_id);
-      return await client.call("PUT", `/partner-user-provision/${id}`, { status: "CANCELLED" });
-    }
-
-    case "reset_provision_token": {
-      const id = num(args.provision_id);
-      return await client.call("PUT", `/partner-user-provision/${id}`, {
-        status: "TOKEN_RESET_REQUESTED",
-      });
-    }
-
-    // ── User Session (on behalf of provisioned user) ──────────────────────────
-    case "create_user_session": {
-      // Creates a session using the provisioned user's credential.token_value
-      return await client.callWithKey(str(args.credential_token), "POST", "/session-server", {
-        secret: str(args.credential_token),
-      });
-    }
-
-    // ── User Freeze ─────────────────────────────────────────────────────────────
-    case "freeze_user": {
-      const userId = num(args.user_id);
-      return await client.call("POST", `/user/${userId}/freeze`, {});
-    }
-
-    case "unfreeze_user": {
-      const userId = num(args.user_id);
-      return await client.call("POST", `/user/${userId}/unfreeze`, {});
-    }
-
-    // ── Webhooks ──────────────────────────────────────────────────────────────
-    case "set_notification_filters": {
-      // ⚠️ Replaces ALL existing filters — caller must include the full desired list
-      const userId = num(args.user_id);
-      const filters = arr<{ category: string; notification_target: string }>(args.filters, []);
-      return await client.call("POST", `/user/${userId}/notification-filter-url`, {
-        notification_filters: filters,
-      });
-    }
-
-    case "list_notification_failures": {
-      const userId = num(args.user_id);
-      return await client.call("GET", `/user/${userId}/notification-filter-failure`, null);
-    }
-
-    case "retry_notification_failures": {
-      const userId = num(args.user_id);
-      return await client.call("POST", `/user/${userId}/notification-filter-failure`, {
-        notification_filter_failed_ids: str(args.failure_ids),
-      });
-    }
-
-    // ── KYC Fulfillments ──────────────────────────────────────────────────────
-    case "set_address_main": {
-      const userId = num(args.user_id);
-      return await client.call("POST", `/user/${userId}/address-main`, {
-        address_main: {
-          street: str(args.street),
-          house_number: str(args.house_number),
-          postal_code: str(args.postal_code),
-          city: str(args.city),
-          country: str(args.country, "NL"),
-        },
-      });
-    }
-
-    case "set_address_postal": {
-      const userId = num(args.user_id);
-      return await client.call("POST", `/user/${userId}/address-postal`, {
-        address_postal: {
-          street: str(args.street),
-          house_number: str(args.house_number),
-          postal_code: str(args.postal_code),
-          city: str(args.city),
-          country: str(args.country, "NL"),
-        },
-      });
-    }
-
-    case "update_user_person": {
-      const userId = num(args.user_id);
-      const body: Record<string, unknown> = {
-        first_name: str(args.first_name),
-        last_name: str(args.last_name),
-        date_of_birth: str(args.date_of_birth),
-      };
-      if (args.middle_name) body.middle_name = str(args.middle_name);
-      return await client.call("PUT", `/user-person/${userId}`, body);
-    }
-
-    case "set_tax_resident": {
-      const userId = num(args.user_id);
-      return await client.call("POST", `/user/${userId}/tax-resident`, {
-        tax_resident: arr(args.tax_residents, []),
-      });
-    }
-
-    case "set_nationality": {
-      const userId = num(args.user_id);
-      return await client.call("POST", `/user/${userId}/nationality`, {
-        all_nationality: arr(args.nationalities, []),
-      });
-    }
-
-    case "start_identity_verification": {
-      const userId = num(args.user_id);
-      return await client.call("POST", `/user/${userId}/identity-verification-session`, {
-        purpose: str(args.purpose, "VERIFICATION"),
-        provider: str(args.provider, "INCODE"),
-      });
-    }
-
-    case "get_identity_verification": {
-      const userId = num(args.user_id);
-      const sessionId = num(args.session_id);
-      return await client.call(
-        "GET",
-        `/user/${userId}/identity-verification-session/${sessionId}`,
-        null
-      );
-    }
-
-    case "submit_identity_verification": {
-      const userId = num(args.user_id);
-      const sessionId = num(args.session_id);
-      return await client.call(
-        "PUT",
-        `/user/${userId}/identity-verification-session/${sessionId}`,
-        { status: "SUBMITTED" }
-      );
-    }
-
-    case "link_document_identification": {
-      const userId = num(args.user_id);
-      const body: Record<string, unknown> = {
-        document_type: str(args.document_type),
-        document_country_of_issuance: str(args.document_country_of_issuance),
-        document_attachment_id: num(args.document_attachment_id),
-      };
-      if (args.document_back_attachment_id) {
-        body.document_back_attachment_id = num(args.document_back_attachment_id);
-      }
-      return await client.call("POST", `/user/${userId}/document-identification`, body);
-    }
-
-    // ── Attachments ───────────────────────────────────────────────────────────
-    case "upload_attachment": {
-      // Attachments use raw binary — we pass base64 here and note the limitation
-      // In a real integration the client should send raw bytes with Content-Type header
-      const userId = num(args.user_id);
-      return await client.callAttachment(
-        userId,
-        str(args.description),
-        str(args.content_type, "image/jpeg"),
-        str(args.base64_content)
-      );
-    }
-
-    case "get_attachment": {
-      const userId = num(args.user_id);
-      const attachmentId = num(args.attachment_id);
-      return await client.call("GET", `/user/${userId}/attachment/${attachmentId}`, null);
-    }
-
-    // ── Monetary Accounts ─────────────────────────────────────────────────────
-    case "create_bank_account": {
-      const userId = num(args.user_id);
-      return await client.call("POST", `/user/${userId}/monetary-account-bank`, {
-        currency: str(args.currency, "EUR"),
-        description: str(args.description, "Main Account"),
-      });
-    }
-
-    case "create_external_account": {
-      const userId = num(args.user_id);
-      const body: Record<string, unknown> = {
-        currency: str(args.currency),
-        service: str(args.service, "CURRENCY_CLOUD"),
-        description: str(args.description, "External Account"),
-      };
-      if (args.display_name) body.display_name = str(args.display_name);
-      return await client.call("POST", `/user/${userId}/monetary-account-external`, body);
-    }
-
-    case "list_monetary_accounts": {
-      const userId = num(args.user_id);
-      return await client.call("GET", `/user/${userId}/monetary-account`, null);
-    }
-
-    case "get_monetary_account": {
-      const userId = num(args.user_id);
-      const accountId = num(args.account_id);
-      return await client.call("GET", `/user/${userId}/monetary-account/${accountId}`, null);
-    }
-
-    case "update_bank_account": {
-      const userId = num(args.user_id);
-      const accountId = num(args.account_id);
-      const body: Record<string, unknown> = {};
-      if (args.description) body.description = str(args.description);
-      if (args.daily_limit) body.daily_limit = obj(args.daily_limit);
-      if (args.status) body.status = str(args.status);
-      if (args.sub_status) body.sub_status = str(args.sub_status);
-      if (args.reason) body.reason = str(args.reason);
-      if (args.reason_description) body.reason_description = str(args.reason_description);
-      return await client.call("PUT", `/user/${userId}/monetary-account-bank/${accountId}`, body);
-    }
-
-    // ── Payments ──────────────────────────────────────────────────────────────
-    case "create_payment": {
-      const userId = num(args.user_id);
-      const accountId = num(args.account_id);
-      const body: Record<string, unknown> = {
-        amount: {
-          value: str(args.amount),
-          currency: str(args.currency, "EUR"),
-        },
-        counterparty_alias: {
-          type: "IBAN",
-          value: str(args.counterparty_iban),
-          name: str(args.counterparty_name),
-        },
-        description: str(args.description),
-      };
-      if (args.merchant_reference) body.merchant_reference = str(args.merchant_reference);
-      return await client.call(
-        "POST",
-        `/user/${userId}/monetary-account/${accountId}/payment`,
-        body
-      );
-    }
-
-    case "get_payment": {
-      const userId = num(args.user_id);
-      const accountId = num(args.account_id);
-      const paymentId = num(args.payment_id);
-      return await client.call(
-        "GET",
-        `/user/${userId}/monetary-account/${accountId}/payment/${paymentId}`,
-        null
-      );
-    }
-
-    case "list_payments": {
-      const userId = num(args.user_id);
-      const accountId = num(args.account_id);
-      return await client.call(
-        "GET",
-        `/user/${userId}/monetary-account/${accountId}/payment`,
-        null
-      );
-    }
-
-    // ── bunq.me Tabs ──────────────────────────────────────────────────────────
-    case "create_bunqme_tab": {
-      const userId = num(args.user_id);
-      const accountId = num(args.account_id);
-      const bunqmeTabEntry: Record<string, unknown> = {
-        amount_inquired: {
-          value: str(args.amount),
-          currency: str(args.currency, "EUR"),
-        },
-      };
-      if (args.description) bunqmeTabEntry.description = str(args.description);
-      if (args.redirect_url) bunqmeTabEntry.redirect_url = str(args.redirect_url);
-      const body: Record<string, unknown> = { bunqme_tab_entry: bunqmeTabEntry };
-      if (args.payment_method) body.payment_method = str(args.payment_method);
-      return await client.call(
-        "POST",
-        `/user/${userId}/monetary-account/${accountId}/bunqme-tab`,
-        body
-      );
-    }
-
-    case "get_bunqme_tab": {
-      const userId = num(args.user_id);
-      const accountId = num(args.account_id);
-      const tabId = num(args.bunqme_tab_id);
-      return await client.call(
-        "GET",
-        `/user/${userId}/monetary-account/${accountId}/bunqme-tab/${tabId}`,
-        null
-      );
-    }
-
-    case "list_bunqme_tabs": {
-      const userId = num(args.user_id);
-      const accountId = num(args.account_id);
-      return await client.call(
-        "GET",
-        `/user/${userId}/monetary-account/${accountId}/bunqme-tab`,
-        null
-      );
-    }
-
-    case "update_bunqme_tab": {
-      const userId = num(args.user_id);
-      const accountId = num(args.account_id);
-      const tabId = num(args.bunqme_tab_id);
-      const body: Record<string, unknown> = {};
-      if (args.status) body.status = str(args.status);
-      return await client.call(
-        "PUT",
-        `/user/${userId}/monetary-account/${accountId}/bunqme-tab/${tabId}`,
-        body
-      );
-    }
-
-    // ── Cards ─────────────────────────────────────────────────────────────────
-    case "create_credit_card": {
-      const userId = num(args.user_id);
-      const body: Record<string, unknown> = {
-        second_line: str(args.second_line),
-        type: "MASTERCARD",
-        product_type: str(args.product_type),
-        order_status: str(args.order_status, "VIRTUAL_DELIVERY"),
-      };
-      if (args.name_on_card) body.name_on_card = str(args.name_on_card);
-      if (args.product_sub_type) body.product_sub_type = str(args.product_sub_type);
-      return await client.call("POST", `/user/${userId}/card-credit`, body);
-    }
-
-    case "create_debit_card": {
-      const userId = num(args.user_id);
-      const body: Record<string, unknown> = {
-        second_line: str(args.second_line),
-        type: "MASTERCARD",
-        product_type: str(args.product_type),
-        order_status: str(args.order_status, "VIRTUAL_DELIVERY"),
-      };
-      if (args.name_on_card) body.name_on_card = str(args.name_on_card);
-      if (args.product_sub_type) body.product_sub_type = str(args.product_sub_type);
-      if (args.monetary_account_id_fallback) {
-        body.monetary_account_id_fallback = num(args.monetary_account_id_fallback);
-      }
-      return await client.call("POST", `/user/${userId}/card-debit`, body);
-    }
-
-    case "get_card": {
-      const userId = num(args.user_id);
-      const cardId = num(args.card_id);
-      return await client.call("GET", `/user/${userId}/card/${cardId}`, null);
-    }
-
-    case "list_cards": {
-      const userId = num(args.user_id);
-      return await client.call("GET", `/user/${userId}/card`, null);
-    }
-
-    case "update_card": {
-      const userId = num(args.user_id);
-      const cardId = num(args.card_id);
-      const body: Record<string, unknown> = {};
-      if (args.status) body.status = str(args.status);
-      if (args.card_limit) body.card_limit = obj(args.card_limit);
-      if (args.card_limit_atm) body.card_limit_atm = obj(args.card_limit_atm);
-      if (args.cancellation_reason) body.cancellation_reason = str(args.cancellation_reason);
-      return await client.call("PUT", `/user/${userId}/card/${cardId}`, body);
-    }
-
-    // ── Card details (encrypted endpoints) ────────────────────────────────────
-    case "create_card_pan": {
-      const userId = num(args.user_id);
-      const cardId = num(args.card_id);
-      return await client.call(
-        "POST",
-        `/user/${userId}/card/${cardId}/primary-account-number`,
-        null,
-        true
-      );
-    }
-
-    case "create_card_cvc2": {
-      const userId = num(args.user_id);
-      const cardId = num(args.card_id);
-      const body: Record<string, unknown> = {};
-      if (args.type) body.type = str(args.type);
-      return await client.call(
-        "POST",
-        `/user/${userId}/card/${cardId}/generated-cvc2`,
-        body,
-        true
-      );
-    }
-
-    case "list_card_cvc2": {
-      const userId = num(args.user_id);
-      const cardId = num(args.card_id);
-      return await client.call(
-        "GET",
-        `/user/${userId}/card/${cardId}/generated-cvc2`,
-        null,
-        true
-      );
-    }
-
-    case "get_card_cvc2": {
-      const userId = num(args.user_id);
-      const cardId = num(args.card_id);
-      const cvc2Id = num(args.generated_cvc2_id);
-      return await client.call(
-        "GET",
-        `/user/${userId}/card/${cardId}/generated-cvc2/${cvc2Id}`,
-        null,
-        true
-      );
-    }
-
-    // ── Compliance: User Information Inquiry ──────────────────────────────────
-    case "list_user_inquiries": {
-      const userId = num(args.user_id);
-      const params = new URLSearchParams();
-      if (args.status) params.set("status", str(args.status));
-      if (args.purpose) params.set("purpose", str(args.purpose));
-      const qs = params.toString() ? `?${params.toString()}` : "";
-      return await client.call("GET", `/user/${userId}/user-information-inquiry${qs}`, null);
-    }
-
-    case "get_user_inquiry": {
-      const userId = num(args.user_id);
-      const inquiryId = num(args.inquiry_id);
-      return await client.call(
-        "GET",
-        `/user/${userId}/user-information-inquiry/${inquiryId}`,
-        null
-      );
-    }
-
-    case "respond_to_inquiry_entry": {
-      const userId = num(args.user_id);
-      const inquiryId = num(args.inquiry_id);
-      const entryId = num(args.entry_id);
-      const body: Record<string, unknown> = {};
-      if (args.all_attachment_id) body.all_attachment_id = arr(args.all_attachment_id, []);
-      if (args.answer) body.answer = str(args.answer);
-      return await client.call(
-        "PUT",
-        `/user/${userId}/user-information-inquiry/${inquiryId}/partner-user-information-inquiry-entry/${entryId}`,
-        body
-      );
-    }
-
-    default:
-      throw new Error(`Unknown tool: ${name}`);
   }
+}
+
+/** Rejects missing required arguments and turns numeric strings into numbers. */
+export function validateArgs(tool: ToolDefinition, args: Args): Args {
+  const argsValid: Args = { ...args };
+
+  for (const name of tool.inputSchema.required ?? []) {
+    if (isPresent(args[name])) {
+      // Required argument is present.
+    } else {
+      throw new Error(`Missing required argument for ${tool.name}: ${name}`);
+    }
+  }
+
+  for (const [name, schema] of Object.entries(tool.inputSchema.properties)) {
+    if (schema.type === "number" && isPresent(args[name])) {
+      const value = Number(args[name]);
+      if (Number.isFinite(value)) {
+        argsValid[name] = value;
+      } else {
+        throw new Error(`Argument ${name} of ${tool.name} must be a number, got ${JSON.stringify(args[name])}`);
+      }
+    } else {
+      // Not a number argument, or absent.
+    }
+  }
+
+  return argsValid;
+}
+
+export async function executeOperation(operation: Operation, args: Args, client: BunqClient): Promise<unknown> {
+  if (operation.path.includes(`{${PLACEHOLDER_PARTNER_USER_ID}}`)) {
+    await client.ensureSession();
+  } else {
+    // The path does not need the partner's own id.
+  }
+
+  const path = buildPath(operation, args, client.currentUserId);
+  const body = operation.body ? operation.body(args) : null;
+  const encrypt = operation.encrypt ?? false;
+
+  if (operation.scope === "user") {
+    return client.callForUser(Number(args.user_id), operation.method, path, body, encrypt);
+  } else {
+    return client.call(operation.method, path, body, encrypt);
+  }
+}
+
+export function buildPath(operation: Operation, args: Args, partnerUserId: number): string {
+  const pathFilled = operation.path.replace(PATH_PLACEHOLDER, (_match, name: string) => {
+    if (name === PLACEHOLDER_PARTNER_USER_ID) {
+      return String(partnerUserId);
+    } else if (isPresent(args[name])) {
+      return encodeURIComponent(String(args[name]));
+    } else {
+      throw new Error(`Missing path argument: ${name}`);
+    }
+  });
+
+  const params = new URLSearchParams();
+  for (const name of operation.query ?? []) {
+    if (isPresent(args[name])) params.set(name, String(args[name]));
+  }
+  const queryString = params.toString();
+
+  return queryString ? `${pathFilled}?${queryString}` : pathFilled;
 }
