@@ -867,9 +867,12 @@ export const TOOLS = [
   {
     name: "create_payment",
     description:
-      "Creates a payment from a monetary account. For provisioned users without PSD2 access, " +
-      "only internal transfers between Eva and the partner are allowed. " +
-      "Description is limited to 140 characters.",
+      "Creates a payment from a monetary account. For a provisioned user, a payment to anyone " +
+      "other than your own (partner) account must be signed by the user's device " +
+      "(X-Bunq-Device-Signature). This MCP has no device key, so such a payment gets a 401; " +
+      "send it from your backend with the signature made on the user's device. A payment to " +
+      "your own bunq account works here, as long as the device signature is optional for you. " +
+      "An external IBAN always needs the device signature. Description is limited to 140 characters.",
     inputSchema: {
       type: "object",
       properties: {

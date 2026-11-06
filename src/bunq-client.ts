@@ -28,6 +28,8 @@ const RSA_MODULUS_LENGTH = 2048;
 const TIMEOUT_DEFAULT_MS = 30_000;
 const HTTP_STATUS_UNAUTHORIZED = 401;
 const HTTP_STATUS_FORBIDDEN = 403;
+/** A 401 about the user's device signature is final: a new session does not add the signature. */
+const ERROR_DEVICE_SIGNATURE_PATTERN = /device signature/i;
 const ERROR_BODY_PREVIEW_LENGTH = 200;
 const USER_AGENT = "bunq-partner-mcp/1.0";
 const DEVICE_DESCRIPTION_PARTNER = "bunq-partner-mcp";
@@ -395,7 +397,11 @@ export class BunqClient {
     try {
       return await this.send(context, method, path, { ...options, authToken: context.sessionToken });
     } catch (error) {
-      if (error instanceof BunqApiError && error.status === HTTP_STATUS_UNAUTHORIZED) {
+      if (
+        error instanceof BunqApiError &&
+        error.status === HTTP_STATUS_UNAUTHORIZED &&
+        ERROR_DEVICE_SIGNATURE_PATTERN.test(error.message) === false
+      ) {
         await this.renewSession(context);
         return await this.send(context, method, path, { ...options, authToken: context.sessionToken });
       } else {

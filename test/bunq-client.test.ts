@@ -273,3 +273,24 @@ test("state file of another environment or key stays untouched", async () => {
 
   assert.equal(fs.readFileSync(stateFile, "utf8"), contentBefore);
 });
+
+test("a 401 about the device signature is not retried with a new session", async () => {
+  const fake = createFakeBunq(API_KEY);
+  fake.route((c) =>
+    c.path === "/v1/user/100/monetary-account/1/payment"
+      ? {
+          status: 401,
+          json: { Error: [{ error_description: "Request device signature is required for this operation. For more information, visit the following documentation pages." }] },
+          isSigned: false,
+        }
+      : undefined
+  );
+  const { client } = createClient(fake);
+
+  await assert.rejects(
+    client.callForUser(PARTNER_USER_ID, "POST", "/user/100/monetary-account/1/payment", { description: "x" }),
+    (e: unknown) => e instanceof BunqApiError && e.status === 401 && /device signature is required/.test(e.message)
+  );
+  assert.equal(fake.callsTo("/v1/user/100/monetary-account/1/payment").length, 1);
+  assert.equal(fake.callsTo("/v1/session-server").length, 1);
+});
