@@ -35,6 +35,7 @@ const HEADER_SERVER_SIGNATURE = "X-Bunq-Server-Signature";
 const HEADER_CLIENT_SIGNATURE = "X-Bunq-Client-Signature";
 const HEADER_CLIENT_AUTHENTICATION = "X-Bunq-Client-Authentication";
 const CONTENT_TYPE_JSON = "application/json";
+const METHODS_WITHOUT_BODY = ["GET", "HEAD"];
 
 // ─── Errors ───────────────────────────────────────────────────────────────────
 
@@ -339,7 +340,10 @@ export class BunqClient {
     let bodyWire = bodyPlain;
     let headersEncryption: Record<string, string> = {};
 
-    if (options.encrypt) {
+    if (METHODS_WITHOUT_BODY.includes(method)) {
+      // fetch refuses a body on GET and HEAD, so an encrypted read sends none.
+      bodyWire = Buffer.alloc(0);
+    } else if (options.encrypt) {
       const { cipher, headers } = encryptRequest(bodyPlain.toString("utf8"), context.serverPublicKey);
       bodyWire = cipher;
       headersEncryption = headers;

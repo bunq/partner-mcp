@@ -29,40 +29,10 @@ const TOOL_CUSTOM_OPERATION: Record<string, string | null> = {
 };
 
 /** Swagger operations that have no tool yet. Remove an entry when its tool is added. */
-const KNOWN_GAP_TOOL = new Set<string>([
-  "GET /user/{}/challenge-request",
-  "GET /user/{}/challenge-request/{}",
-  "PUT /user/{}/challenge-request/{}",
-  "GET /user/{}/monetary-account-bank",
-  "GET /user/{}/monetary-account-bank/{}",
-  "GET /user/{}/monetary-account-external",
-  "GET /user/{}/monetary-account-external/{}",
-  "PUT /user/{}/monetary-account-external/{}",
-  "GET /user/{}/monetary-account/{}/mastercard-action",
-  "GET /user/{}/monetary-account/{}/mastercard-action/{}",
-  "GET /user/{}/notification-filter-url",
-  "GET /user/{}/user-onboarding",
-  "GET /user/{}/user-onboarding/{}",
-  "POST /user/{}/user-onboarding",
-  "PUT /user/{}/user-onboarding/{}",
-  "PUT /user/{}/oauth-client/{}",
-  "PUT /user/{}/card/{}/generated-cvc2/{}",
-]);
+const KNOWN_GAP_TOOL = new Set<string>([]);
 
 /** Tool operations that the swagger does not document yet. Remove an entry when the path is added. */
-const KNOWN_GAP_SWAGGER = new Set<string>([
-  "POST /user/{}/address-main",
-  "POST /user/{}/address-postal",
-  "PUT /user-person/{}",
-  "POST /user/{}/tax-resident",
-  "POST /user/{}/nationality",
-  "POST /user/{}/identity-verification-session",
-  "GET /user/{}/identity-verification-session/{}",
-  "PUT /user/{}/identity-verification-session/{}",
-  "POST /user/{}/document-identification",
-  "GET /user/{}/monetary-account",
-  "GET /user/{}/monetary-account/{}",
-]);
+const KNOWN_GAP_SWAGGER = new Set<string>([]);
 
 function normalize(method: string, path: string): string {
   return `${method.toUpperCase()} ${path.split("?")[0].replace(/\{[^}]+\}/g, "{}")}`;

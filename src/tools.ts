@@ -60,6 +60,20 @@ export const TOOLS = [
     },
   },
 
+  {
+    name: "update_oauth_client",
+    description:
+      "Activates or cancels one of your OAuth clients.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        oauth_client_id: { type: "number", description: "ID of the OAuth client." },
+        status: { type: "string", enum: ["ACTIVE", "CANCELLED"], description: "New status of the OAuth client." },
+      },
+      required: ["oauth_client_id", "status"],
+    },
+  },
+
   // ── Partner User Provision ───────────────────────────────────────────────────
   {
     name: "create_provision",
@@ -154,6 +168,40 @@ export const TOOLS = [
         provision_id: { type: "number", description: "ID of the provision." },
       },
       required: ["provision_id"],
+    },
+  },
+
+  {
+    name: "create_audit_transaction",
+    description:
+      "Reports a deposit or withdrawal that happened outside bunq for a provisioned user (crypto  " +
+      "partners). bunq uses it for transaction monitoring; a high value can open a compliance  " +
+      "inquiry. Uses your partner session.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        external_uuid: { type: "string", description: "external_uuid of the provisioned user." },
+        type: { type: "string", enum: ["DEPOSIT", "WITHDRAWAL"], description: "Direction of the transaction." },
+        reference: { type: "string", description: "Your own reference for the transaction." },
+        time_transaction: { type: "string", description: "ISO 8601 time of the transaction." },
+        amount: { type: "string", description: "Amount as a decimal string, e.g. \"100.00\"." },
+        balance_after_transaction: { type: "string", description: "Balance after the transaction as a decimal string." },
+        currency: { type: "string", description: "ISO 4217 currency code. Default EUR." },
+        counterparty_alias: { type: "object", description: "Counterparty: {type: IBAN, bank_account_holder_name, bank_account_iban} or {type: CARD, card_holder_name, card_primary_account_number_last_four_digit}." },
+      },
+      required: ["external_uuid", "type", "reference", "time_transaction", "amount", "balance_after_transaction", "counterparty_alias"],
+    },
+  },
+  {
+    name: "get_audit_transaction",
+    description:
+      "Gets an audit transaction that you reported.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        audit_transaction_id: { type: "number", description: "ID returned by create_audit_transaction." },
+      },
+      required: ["audit_transaction_id"],
     },
   },
 
@@ -283,6 +331,20 @@ export const TOOLS = [
         },
       },
       required: ["user_id", "failure_ids"],
+    },
+  },
+
+  {
+    name: "list_notification_filters",
+    description:
+      "Lists the webhook URLs that are set for a user. Use it before set_notification_filters,  " +
+      "which replaces the whole list.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        user_id: { type: "number", description: "user_api_key_id from create_user_session for a provisioned user, or your own partner user id." },
+      },
+      required: ["user_id"],
     },
   },
 
@@ -455,6 +517,128 @@ export const TOOLS = [
     },
   },
 
+  {
+    name: "get_user_person",
+    description:
+      "Gets the personal details, status, verification status and freeze status of a provisioned  " +
+      "user.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
+      },
+      required: ["user_id"],
+    },
+  },
+  {
+    name: "set_employment_status",
+    description:
+      "Sets the employment status of a provisioned user (an onboarding fulfilment).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
+        type: { type: "string", enum: ["EMPLOYED", "UNEMPLOYED", "STUDENT", "SELF_EMPLOYED", "RETIRED"], description: "Employment status." },
+      },
+      required: ["user_id", "type"],
+    },
+  },
+  {
+    name: "list_employment_status",
+    description:
+      "Lists the employment status of a provisioned user. Use its id to update it.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
+      },
+      required: ["user_id"],
+    },
+  },
+  {
+    name: "update_employment_status",
+    description:
+      "Changes the employment status of a provisioned user.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
+        employment_status_id: { type: "number", description: "ID from list_employment_status." },
+        type: { type: "string", enum: ["EMPLOYED", "UNEMPLOYED", "STUDENT", "SELF_EMPLOYED", "RETIRED"], description: "Employment status." },
+      },
+      required: ["user_id", "employment_status_id", "type"],
+    },
+  },
+  {
+    name: "list_identity_verifications",
+    description:
+      "Lists the identity verification sessions of a provisioned user.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
+      },
+      required: ["user_id"],
+    },
+  },
+  {
+    name: "list_user_onboardings",
+    description:
+      "Lists the onboarding of a provisioned user, including action_required and the waiting  " +
+      "message. Use its id for update_user_onboarding.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
+      },
+      required: ["user_id"],
+    },
+  },
+  {
+    name: "get_user_onboarding",
+    description:
+      "Gets one onboarding of a provisioned user.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
+        onboarding_id: { type: "number", description: "ID from list_user_onboardings." },
+      },
+      required: ["user_id", "onboarding_id"],
+    },
+  },
+  {
+    name: "create_user_onboarding",
+    description:
+      "Starts an onboarding for a provisioned user.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
+        type: { type: "string", description: "Onboarding type, e.g. PARTNER_USER_PERSON." },
+        user_status_desired: { type: "string", enum: ["ACTIVE"], description: "Desired user status." },
+        user_verification_status_desired: { type: "string", enum: ["VERIFIED"], description: "Desired verification status." },
+      },
+      required: ["user_id", "type"],
+    },
+  },
+  {
+    name: "update_user_onboarding",
+    description:
+      "Asks bunq to move the onboarding on, e.g. to ACTIVE and VERIFIED after all fulfilments are  " +
+      "done. A 467 error lists the fulfilments that are still missing.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
+        onboarding_id: { type: "number", description: "ID from list_user_onboardings." },
+        user_status_desired: { type: "string", enum: ["ACTIVE"], description: "Desired user status." },
+        user_verification_status_desired: { type: "string", enum: ["VERIFIED"], description: "Desired verification status." },
+      },
+      required: ["user_id", "onboarding_id"],
+    },
+  },
+
   // ── Attachment ───────────────────────────────────────────────────────────────
   {
     name: "upload_attachment",
@@ -586,6 +770,76 @@ export const TOOLS = [
           description: "Reason when closing the account (status=CANCELLED).",
         },
         reason_description: { type: "string", description: "Free-text reason description." },
+      },
+      required: ["user_id", "account_id"],
+    },
+  },
+
+  {
+    name: "list_bank_accounts",
+    description:
+      "Lists the bank (MonetaryAccountBank) accounts of a user.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
+      },
+      required: ["user_id"],
+    },
+  },
+  {
+    name: "get_bank_account",
+    description:
+      "Gets one bank (MonetaryAccountBank) account of a user.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
+        account_id: { type: "number", description: "Monetary account ID." },
+      },
+      required: ["user_id", "account_id"],
+    },
+  },
+  {
+    name: "list_external_accounts",
+    description:
+      "Lists the external (e.g. Currency Cloud) accounts of a user.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
+      },
+      required: ["user_id"],
+    },
+  },
+  {
+    name: "get_external_account",
+    description:
+      "Gets one external account of a user.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
+        account_id: { type: "number", description: "Monetary account ID." },
+      },
+      required: ["user_id", "account_id"],
+    },
+  },
+  {
+    name: "update_external_account",
+    description:
+      "Updates an external account: description, daily limit, or status (cancel or reopen).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
+        account_id: { type: "number", description: "Monetary account ID." },
+        description: { type: "string", description: "New description." },
+        daily_limit: { type: "object", description: "Daily limit, e.g. {value: \"1000.00\", currency: \"EUR\"}." },
+        status: { type: "string", enum: ["ACTIVE", "CANCELLED", "PENDING_REOPEN"], description: "New status." },
+        sub_status: { type: "string", enum: ["NONE", "REDEMPTION_VOLUNTARY"], description: "Sub-status; REDEMPTION_VOLUNTARY when cancelling." },
+        reason: { type: "string", enum: ["OTHER"], description: "Reason when cancelling." },
+        reason_description: { type: "string", description: "Free-text reason when cancelling." },
       },
       required: ["user_id", "account_id"],
     },
@@ -793,57 +1047,6 @@ export const TOOLS = [
     },
   },
   {
-    name: "list_cards",
-    description: "Lists all cards (credit and debit) for a user.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        user_id: { type: "number", description: DESCRIPTION_USER_ID },
-      },
-      required: ["user_id"],
-    },
-  },
-  {
-    name: "update_card",
-    description:
-      "Updates a card's status, spending limits, or PIN. Use to activate a card after delivery, " +
-      "block/unblock it, or report it lost/stolen.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        user_id: { type: "number", description: DESCRIPTION_USER_ID },
-        card_id: { type: "number", description: "Card ID." },
-        status: {
-          type: "string",
-          enum: ["ACTIVE", "DEACTIVATED", "LOST", "STOLEN", "CANCELLED"],
-          description: "New card status.",
-        },
-        card_limit: {
-          type: "object",
-          description: "Daily spending limit.",
-          properties: {
-            value: { type: "string" },
-            currency: { type: "string" },
-          },
-        },
-        card_limit_atm: {
-          type: "object",
-          description: "Daily ATM withdrawal limit.",
-          properties: {
-            value: { type: "string" },
-            currency: { type: "string" },
-          },
-        },
-        cancellation_reason: {
-          type: "string",
-          enum: ["FRAUD", "LOST", "STOLEN", "OTHER"],
-          description: "Required when status=CANCELLED.",
-        },
-      },
-      required: ["user_id", "card_id"],
-    },
-  },
-  {
     name: "create_card_pan",
     description:
       "Generates and retrieves the primary account number (PAN) for a card. " +
@@ -857,50 +1060,49 @@ export const TOOLS = [
       required: ["user_id", "card_id"],
     },
   },
+
   {
-    name: "create_card_cvc2",
+    name: "list_challenge_requests",
     description:
-      "Generates a new CVC2 security code for a card. This is an encrypted endpoint — " +
-      "the request is end-to-end encrypted on top of TLS.",
+      "Lists the Mastercard Identity Check (3DS) challenge requests of a provisioned user. A  " +
+      "challenge appears when the user pays online with the card and must approve it.",
     inputSchema: {
       type: "object",
       properties: {
         user_id: { type: "number", description: DESCRIPTION_USER_ID },
-        card_id: { type: "number", description: "Card ID." },
-        type: {
-          type: "string",
-          enum: ["STATIC", "GENERATED"],
-          description: "The type of CVC2 to generate.",
-        },
+        status: { type: "string", description: "Optional filter, e.g. PENDING." },
       },
-      required: ["user_id", "card_id"],
+      required: ["user_id"],
     },
   },
   {
-    name: "list_card_cvc2",
+    name: "get_challenge_request",
     description:
-      "Lists all generated CVC2 codes for a card. This is an encrypted endpoint.",
+      "Gets one 3DS challenge request: amount, merchant, expiry and status.",
     inputSchema: {
       type: "object",
       properties: {
         user_id: { type: "number", description: DESCRIPTION_USER_ID },
-        card_id: { type: "number", description: "Card ID." },
+        challenge_request_id: { type: "number", description: "Challenge request ID." },
       },
-      required: ["user_id", "card_id"],
+      required: ["user_id", "challenge_request_id"],
     },
   },
   {
-    name: "get_card_cvc2",
+    name: "update_challenge_request",
     description:
-      "Gets the details of a specific generated CVC2 code. This is an encrypted endpoint.",
+      "Accepts or rejects a 3DS challenge request for the user. When accepting,  " +
+      "monetary_account_id picks the account that the payment is charged from; when omitted bunq  " +
+      "picks it.",
     inputSchema: {
       type: "object",
       properties: {
         user_id: { type: "number", description: DESCRIPTION_USER_ID },
-        card_id: { type: "number", description: "Card ID." },
-        generated_cvc2_id: { type: "number", description: "Generated CVC2 ID." },
+        challenge_request_id: { type: "number", description: "Challenge request ID." },
+        status: { type: "string", enum: ["ACCEPTED_PENDING_RESPONSE", "REJECTED_PENDING_RESPONSE"], description: "Accept or reject." },
+        monetary_account_id: { type: "number", description: "Optional account to charge when accepting." },
       },
-      required: ["user_id", "card_id", "generated_cvc2_id"],
+      required: ["user_id", "challenge_request_id", "status"],
     },
   },
 
