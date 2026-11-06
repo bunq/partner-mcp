@@ -77,11 +77,15 @@ Always test in sandbox first. Sandbox API keys contain a `sandbox_` prefix.
 
 Calls on behalf of a provisioned user (KYC, accounts, payments, cards, inquiries, freeze) must use that user's own session, not your partner session.
 
-1. When a provision is `ACTIVE`, call `create_user_session` with its `credential.token_value`.
-2. The server creates the user's installation, device and session, and keeps the session token itself. The tool returns only `user_id` and `user_api_key_id`.
+1. When `get_provision` shows `ACTIVE`, call `create_user_session` with its `provision_id`.
+2. The server reads the provision's credential token itself, creates the user's installation, device and session, and keeps them. The token never reaches the conversation. The tool returns only `user_id` and `user_api_key_id`.
 3. Pass that `user_id` to every per-user tool. The server picks the matching session. Use `user_api_key_id` only to register that user's webhooks with `set_notification_filters`.
 
 A per-user tool called before `create_user_session` fails with a message that tells you to create the session first.
+
+## What stays out of the conversation
+
+Tool results never contain a credential token (`token_value`), a full card number (only the last 4 digits) or a CVC code.
 
 ## Optional settings
 

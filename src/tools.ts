@@ -82,9 +82,10 @@ export const TOOLS = [
       "flow. Returns a provision_id to monitor progress via get_provision. " +
       "The provision goes through sub-statuses: PENDING_PROCESS_USER → " +
       "PENDING_PROCESS_RELATION_USER → PENDING_PROCESS_OAUTH_REQUEST → " +
-      "PENDING_PROCESS_USER_ONBOARDING. When ACTIVE, a credential.token_value is returned — " +
-      "this is Eva's API key. It expires in 1h (sandbox) / 4h (production): create a session " +
-      "immediately with create_user_session.",
+      "PENDING_PROCESS_USER_ONBOARDING. When ACTIVE, the provision holds the user's credential " +
+      "token. It expires in 1h (sandbox) / 4h (production): call create_user_session with the " +
+      "provision_id immediately. Identify the user by email and phone_number, or by pointer. " +
+      "USER_ANONYMOUS_TRANSACTION_AUDIT also needs date_of_birth and country_of_residence.",
     inputSchema: {
       type: "object",
       properties: {
@@ -112,8 +113,17 @@ export const TOOLS = [
           description: "Type of user to provision. Defaults to PARTNER_USER_PERSON.",
           default: "PARTNER_USER_PERSON",
         },
+        pointer: {
+          type: "object",
+          description: "Alternative to email/phone_number: {type: EMAIL|PHONE_NUMBER, value}.",
+        },
+        date_of_birth: { type: "string", description: "ISO 8601 date. Needed for USER_ANONYMOUS_TRANSACTION_AUDIT." },
+        country_of_residence: {
+          type: "string",
+          description: "ISO 3166-1 alpha-2 country code. Needed for USER_ANONYMOUS_TRANSACTION_AUDIT.",
+        },
       },
-      required: ["external_uuid", "email", "phone_number"],
+      required: ["external_uuid"],
     },
   },
   {
@@ -209,20 +219,21 @@ export const TOOLS = [
   {
     name: "create_user_session",
     description:
-      "Creates a session for a provisioned user with their credential.token_value (from get_provision " +
-      "when status=ACTIVE). The MCP server keeps the session; the token is not returned. Returns " +
-      "user_id (use it for every per-user tool) and user_api_key_id (use it only for the user's " +
-      "webhooks in set_notification_filters). Call it within 1h (sandbox) / 4h (production) of " +
-      "the token being issued.",
+      "Creates a session for a provisioned user. Pass provision_id: the server reads the ACTIVE " +
+      "provision and uses its credential token, so the token never reaches the conversation. " +
+      "The server keeps the session. Returns user_id (use it for every per-user tool) and " +
+      "user_api_key_id (use it only for the user's webhooks in set_notification_filters). Call it " +
+      "within 1h (sandbox) / 4h (production) after the provision turns ACTIVE.",
     inputSchema: {
       type: "object",
       properties: {
+        provision_id: { type: "number", description: "ID of the ACTIVE provision (preferred)." },
         credential_token: {
           type: "string",
-          description: "The credential.token_value from the ACTIVE provision.",
+          description: "Only when you have the token outside this conversation: the credential.token_value.",
         },
       },
-      required: ["credential_token"],
+      required: [],
     },
   },
 
@@ -512,6 +523,8 @@ export const TOOLS = [
           type: "number",
           description: "ID of the back attachment (optional).",
         },
+        document_number: { type: "string", description: "Number of the document." },
+        document_expiry_date: { type: "string", description: "ISO 8601 expiry date of the document." },
       },
       required: ["user_id", "document_type", "document_country_of_issuance", "document_attachment_id"],
     },
@@ -634,6 +647,7 @@ export const TOOLS = [
         onboarding_id: { type: "number", description: "ID from list_user_onboardings." },
         user_status_desired: { type: "string", enum: ["ACTIVE"], description: "Desired user status." },
         user_verification_status_desired: { type: "string", enum: ["VERIFIED"], description: "Desired verification status." },
+        type: { type: "string", description: "Onboarding type, e.g. PARTNER_USER_PERSON." },
       },
       required: ["user_id", "onboarding_id"],
     },
@@ -646,7 +660,8 @@ export const TOOLS = [
       "Uploads a file attachment for a provisioned user. The attachment ID can then be passed " +
       "to respond_to_inquiry_entry via all_attachment_id to submit documents for a compliance " +
       "inquiry. Supported types: image/png, image/jpeg, image/gif, application/pdf. " +
-      "Note: the actual file bytes must be sent as raw binary — provide the file path.",
+      "Pass the file bytes as base64 in base64_content (a data: URI also works). A file path " +
+      "does not work: this server cannot read your files.",
     inputSchema: {
       type: "object",
       properties: {
@@ -690,6 +705,9 @@ export const TOOLS = [
         user_id: { type: "number", description: DESCRIPTION_USER_ID },
         currency: { type: "string", description: "ISO-4217 currency code.", default: "EUR" },
         description: { type: "string", description: "Account display name.", default: "Main Account" },
+        daily_limit: { type: "object", description: "Daily limit, e.g. {value: \"1000.00\", currency: \"EUR\"}." },
+        display_name: { type: "string", description: "Name shown on the account." },
+        country_iban: { type: "string", description: "ISO 3166-1 alpha-2 country of the IBAN." },
       },
       required: ["user_id"],
     },
@@ -1186,6 +1204,8 @@ export const TOOLS = [
           type: "string",
           description: "Filter by purpose (e.g. ONBOARDING, COMPLIANCE_TRANSACTION_MONITORING).",
         },
+        type: { type: "string", description: "Optional filter on the inquiry type." },
+        fulfillment_type: { type: "string", description: "Optional filter on the fulfilment type." },
       },
       required: ["user_id"],
     },

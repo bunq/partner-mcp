@@ -27,6 +27,7 @@ const API_VERSION_PREFIX = "/v1";
 const RSA_MODULUS_LENGTH = 2048;
 const TIMEOUT_DEFAULT_MS = 30_000;
 const HTTP_STATUS_UNAUTHORIZED = 401;
+const HTTP_STATUS_FORBIDDEN = 403;
 const ERROR_BODY_PREVIEW_LENGTH = 200;
 const USER_AGENT = "bunq-partner-mcp/1.0";
 const DEVICE_DESCRIPTION_PARTNER = "bunq-partner-mcp";
@@ -118,6 +119,10 @@ export class BunqClient {
   private readonly timeoutMs: number;
   private readonly fetchImpl: typeof fetch;
   private state: ClientState;
+  /** One running bootstrap or renewal per auth context, so parallel calls share it. */
+  private readonly renewalByContext = new WeakMap<AuthContextState, Promise<void>>();
+  private partnerBootstrap: Promise<void> | null = null;
+  private readonly userSessionByCredential = new Map<string, Promise<UserSessionResult>>();
 
   constructor(apiKey: string, env: BunqEnv = "sandbox", options: BunqClientOptions = {}) {
     this.apiKey = apiKey;
@@ -143,9 +148,18 @@ export class BunqClient {
     } else if (this.state.partner) {
       await this.renewSession(this.state.partner);
     } else {
-      this.state.partner = await this.createContext(this.apiKey);
-      await this.createSession(this.state.partner);
+      this.partnerBootstrap ??= this.bootstrapPartner().finally(() => {
+        this.partnerBootstrap = null;
+      });
+      await this.partnerBootstrap;
     }
+  }
+
+  private async bootstrapPartner(): Promise<void> {
+    const context = await this.createContext(this.apiKey);
+    await this.createSession(context);
+    this.state.partner = context;
+    this.saveState();
   }
 
   async refreshSession(): Promise<void> {
@@ -165,8 +179,43 @@ export class BunqClient {
 
   // ── Provisioned-user sessions ───────────────────────────────────────────────
 
-  /** Creates and stores a session for a provisioned user. The token never leaves the client. */
-  async createUserSession(credentialToken: string): Promise<UserSessionResult> {
+  /**
+   * Reads an ACTIVE provision with the partner session and creates the user's session with its
+   * credential token, so the token does not pass through the model.
+   */
+  async createUserSessionByProvision(provisionId: number): Promise<UserSessionResult> {
+    const result = await this.call("GET", `/partner-user-provision/${provisionId}`);
+    const provision = result.PartnerUserProvision as
+      | { status?: string; credential?: { token_value?: string } | null }
+      | undefined;
+    const credentialToken = provision?.credential?.token_value;
+
+    if (credentialToken) {
+      return this.createUserSession(credentialToken);
+    } else {
+      throw new Error(
+        `Provision ${provisionId} has no credential token yet (status ${provision?.status ?? "unknown"}). ` +
+          `Wait until get_provision shows status ACTIVE, then try again.`
+      );
+    }
+  }
+
+  /** Creates and stores a session for a provisioned user. The session token never leaves the client. */
+  createUserSession(credentialToken: string): Promise<UserSessionResult> {
+    const running = this.userSessionByCredential.get(credentialToken);
+
+    if (running) {
+      return running;
+    } else {
+      const creation = this.createUserSessionOnce(credentialToken).finally(() =>
+        this.userSessionByCredential.delete(credentialToken)
+      );
+      this.userSessionByCredential.set(credentialToken, creation);
+      return creation;
+    }
+  }
+
+  private async createUserSessionOnce(credentialToken: string): Promise<UserSessionResult> {
     const contextExisting = Object.values(this.state.users).find((u) => u.secret === credentialToken);
     let context: AuthContextState;
 
@@ -291,17 +340,43 @@ export class BunqClient {
     this.saveState();
   }
 
-  /** Makes a new session; if the stored installation is no longer valid, starts over. */
-  private async renewSession(context: AuthContextState): Promise<void> {
+  /** Makes a new session. Parallel callers for the same context wait for the same renewal. */
+  private renewSession(context: AuthContextState): Promise<void> {
+    const renewalRunning = this.renewalByContext.get(context);
+
+    if (renewalRunning) {
+      return renewalRunning;
+    } else {
+      const renewal = this.renewSessionOnce(context).finally(() => this.renewalByContext.delete(context));
+      this.renewalByContext.set(context, renewal);
+      return renewal;
+    }
+  }
+
+  /** Starts over with a new installation only when bunq no longer accepts the stored one (401/403). */
+  private async renewSessionOnce(context: AuthContextState): Promise<void> {
     try {
       await this.createSession(context);
     } catch (error) {
-      if (error instanceof BunqApiError) {
-        Object.assign(context, await this.createContext(context.secret));
-        await this.createSession(context);
+      if (error instanceof BunqApiError && [HTTP_STATUS_UNAUTHORIZED, HTTP_STATUS_FORBIDDEN].includes(error.status)) {
+        await this.reinstallContext(context, error);
       } else {
         throw error;
       }
+    }
+  }
+
+  private async reinstallContext(context: AuthContextState, errorSession: BunqApiError): Promise<void> {
+    try {
+      Object.assign(context, await this.createContext(context.secret));
+      await this.createSession(context);
+    } catch (errorReinstall) {
+      const detail = errorReinstall instanceof Error ? errorReinstall.message : String(errorReinstall);
+      throw new BunqApiError(
+        errorSession.status,
+        `${errorSession.message}. A new installation also failed: ${detail}. For a provisioned user, the ` +
+          `credential token can be expired: call reset_provision_token, then create_user_session again.`
+      );
     }
   }
 
@@ -433,10 +508,10 @@ export class BunqClient {
         )
       : body.toString("utf8");
 
-    if (response.ok && isSignatureExpected) {
+    if (isSignatureExpected && (response.ok || response.headers.has(HEADER_SERVER_SIGNATURE))) {
       this.assertSignatureServerValid(context, response, body, Buffer.from(text, "utf8"));
     } else {
-      // Error responses and the installation response are not signed by bunq.
+      // An unsigned error response (e.g. failed authentication) or the installation response.
     }
 
     return text;
