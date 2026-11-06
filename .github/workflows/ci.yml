@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # The tests run TypeScript directly, which needs Node 22.6 or later.
+        node: ["22", "24"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - name: Swagger parses
+        run: npx --yes js-yaml@4.1.0 partner-api-swagger.yaml > /dev/null
+      - name: Typecheck
+        run: npx tsc --noEmit
+      - name: Tests (incl. swagger parity)
+        run: npm test
+      - name: Build
+        run: npm run build

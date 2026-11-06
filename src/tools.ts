@@ -1,7 +1,11 @@
 // ─── Tool definitions for bunq Partner MCP ───────────────────────────────────
 // Each tool maps 1-to-1 with a logical operation on the Partner API.
 // Input schemas use JSON Schema (draft-07) as required by MCP.
-// Source of truth: https://lexy.gitbook.io/partner-onboarding-api-docs/2xC1d0lJp5ubEkda2NxQ
+// Source of truth: https://partner.doc.bunq.com/
+
+const DESCRIPTION_USER_ID =
+  "ID of the provisioned user: the user_id that create_user_session returns. The call uses that " +
+  "user's session, so call create_user_session first. Your own partner user id also works.";
 
 export const TOOLS = [
 
@@ -53,6 +57,20 @@ export const TOOLS = [
         url: { type: "string", description: "HTTPS callback URL to register." },
       },
       required: ["oauth_client_id", "url"],
+    },
+  },
+
+  {
+    name: "update_oauth_client",
+    description:
+      "Activates or cancels one of your OAuth clients.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        oauth_client_id: { type: "number", description: "ID of the OAuth client." },
+        status: { type: "string", enum: ["ACTIVE", "CANCELLED"], description: "New status of the OAuth client." },
+      },
+      required: ["oauth_client_id", "status"],
     },
   },
 
@@ -153,14 +171,49 @@ export const TOOLS = [
     },
   },
 
+  {
+    name: "create_audit_transaction",
+    description:
+      "Reports a deposit or withdrawal that happened outside bunq for a provisioned user (crypto  " +
+      "partners). bunq uses it for transaction monitoring; a high value can open a compliance  " +
+      "inquiry. Uses your partner session.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        external_uuid: { type: "string", description: "external_uuid of the provisioned user." },
+        type: { type: "string", enum: ["DEPOSIT", "WITHDRAWAL"], description: "Direction of the transaction." },
+        reference: { type: "string", description: "Your own reference for the transaction." },
+        time_transaction: { type: "string", description: "ISO 8601 time of the transaction." },
+        amount: { type: "string", description: "Amount as a decimal string, e.g. \"100.00\"." },
+        balance_after_transaction: { type: "string", description: "Balance after the transaction as a decimal string." },
+        currency: { type: "string", description: "ISO 4217 currency code. Default EUR." },
+        counterparty_alias: { type: "object", description: "Counterparty: {type: IBAN, bank_account_holder_name, bank_account_iban} or {type: CARD, card_holder_name, card_primary_account_number_last_four_digit}." },
+      },
+      required: ["external_uuid", "type", "reference", "time_transaction", "amount", "balance_after_transaction", "counterparty_alias"],
+    },
+  },
+  {
+    name: "get_audit_transaction",
+    description:
+      "Gets an audit transaction that you reported.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        audit_transaction_id: { type: "number", description: "ID returned by create_audit_transaction." },
+      },
+      required: ["audit_transaction_id"],
+    },
+  },
+
   // ── User Session (on behalf of provisioned user) ─────────────────────────────
   {
     name: "create_user_session",
     description:
-      "Creates a session on behalf of a provisioned user using their credential.token_value " +
-      "(obtained from get_provision when status=ACTIVE). Returns a session token and " +
-      "UserApiKey.id — use this session token for all subsequent calls on behalf of that user. " +
-      "Must be called within 1h (sandbox) / 4h (production) of the token being issued.",
+      "Creates a session for a provisioned user with their credential.token_value (from get_provision " +
+      "when status=ACTIVE). The MCP server keeps the session; the token is not returned. Returns " +
+      "user_id (use it for every per-user tool) and user_api_key_id (use it only for the user's " +
+      "webhooks in set_notification_filters). Call it within 1h (sandbox) / 4h (production) of " +
+      "the token being issued.",
     inputSchema: {
       type: "object",
       properties: {
@@ -184,7 +237,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "ID of the provisioned user." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
       },
       required: ["user_id"],
     },
@@ -197,7 +250,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "ID of the provisioned user." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
       },
       required: ["user_id"],
     },
@@ -215,7 +268,12 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "User ID (use UserApiKey.id for provisioned users)." },
+        user_id: {
+          type: "number",
+          description:
+            "For a provisioned user's webhooks: the user_api_key_id that create_user_session returns. " +
+            "For your own webhooks: your partner user id.",
+        },
         filters: {
           type: "array",
           description: "Full list of notification filters to set.",
@@ -266,13 +324,27 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "User ID who owns the failed notifications." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
         failure_ids: {
           type: "string",
           description: "Comma-separated failure IDs to retry (e.g. '123,456,789').",
         },
       },
       required: ["user_id", "failure_ids"],
+    },
+  },
+
+  {
+    name: "list_notification_filters",
+    description:
+      "Lists the webhook URLs that are set for a user. Use it before set_notification_filters,  " +
+      "which replaces the whole list.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        user_id: { type: "number", description: "user_api_key_id from create_user_session for a provisioned user, or your own partner user id." },
+      },
+      required: ["user_id"],
     },
   },
 
@@ -283,7 +355,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "ID of the provisioned user." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
         street: { type: "string", description: "Street name." },
         house_number: { type: "string", description: "House number." },
         postal_code: { type: "string", description: "Postal code (e.g. 1111 AA)." },
@@ -299,7 +371,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "ID of the provisioned user." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
         street: { type: "string", description: "Street name." },
         house_number: { type: "string", description: "House number." },
         postal_code: { type: "string", description: "Postal code." },
@@ -316,7 +388,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "ID of the provisioned user." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
         first_name: { type: "string", description: "First name." },
         middle_name: { type: "string", description: "Middle name (optional)." },
         last_name: { type: "string", description: "Last name." },
@@ -332,7 +404,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "ID of the provisioned user." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
         tax_residents: {
           type: "array",
           description: "List of tax residencies.",
@@ -357,7 +429,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "ID of the provisioned user." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
         nationalities: {
           type: "array",
           items: { type: "string" },
@@ -376,7 +448,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "ID of the provisioned user." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
         purpose: {
           type: "string",
           enum: ["VERIFICATION"],
@@ -401,7 +473,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "ID of the provisioned user." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
         session_id: { type: "number", description: "ID of the identity verification session." },
       },
       required: ["user_id", "session_id"],
@@ -415,7 +487,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "ID of the provisioned user." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
         session_id: { type: "number", description: "ID of the identity verification session." },
       },
       required: ["user_id", "session_id"],
@@ -429,7 +501,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "ID of the provisioned user." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
         document_type: { type: "string", description: "Document type (e.g. CRYPTO_KYC_QUESTIONNAIRE)." },
         document_country_of_issuance: {
           type: "string",
@@ -445,6 +517,128 @@ export const TOOLS = [
     },
   },
 
+  {
+    name: "get_user_person",
+    description:
+      "Gets the personal details, status, verification status and freeze status of a provisioned  " +
+      "user.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
+      },
+      required: ["user_id"],
+    },
+  },
+  {
+    name: "set_employment_status",
+    description:
+      "Sets the employment status of a provisioned user (an onboarding fulfilment).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
+        type: { type: "string", enum: ["EMPLOYED", "UNEMPLOYED", "STUDENT", "SELF_EMPLOYED", "RETIRED"], description: "Employment status." },
+      },
+      required: ["user_id", "type"],
+    },
+  },
+  {
+    name: "list_employment_status",
+    description:
+      "Lists the employment status of a provisioned user. Use its id to update it.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
+      },
+      required: ["user_id"],
+    },
+  },
+  {
+    name: "update_employment_status",
+    description:
+      "Changes the employment status of a provisioned user.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
+        employment_status_id: { type: "number", description: "ID from list_employment_status." },
+        type: { type: "string", enum: ["EMPLOYED", "UNEMPLOYED", "STUDENT", "SELF_EMPLOYED", "RETIRED"], description: "Employment status." },
+      },
+      required: ["user_id", "employment_status_id", "type"],
+    },
+  },
+  {
+    name: "list_identity_verifications",
+    description:
+      "Lists the identity verification sessions of a provisioned user.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
+      },
+      required: ["user_id"],
+    },
+  },
+  {
+    name: "list_user_onboardings",
+    description:
+      "Lists the onboarding of a provisioned user, including action_required and the waiting  " +
+      "message. Use its id for update_user_onboarding.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
+      },
+      required: ["user_id"],
+    },
+  },
+  {
+    name: "get_user_onboarding",
+    description:
+      "Gets one onboarding of a provisioned user.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
+        onboarding_id: { type: "number", description: "ID from list_user_onboardings." },
+      },
+      required: ["user_id", "onboarding_id"],
+    },
+  },
+  {
+    name: "create_user_onboarding",
+    description:
+      "Starts an onboarding for a provisioned user.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
+        type: { type: "string", description: "Onboarding type, e.g. PARTNER_USER_PERSON." },
+        user_status_desired: { type: "string", enum: ["ACTIVE"], description: "Desired user status." },
+        user_verification_status_desired: { type: "string", enum: ["VERIFIED"], description: "Desired verification status." },
+      },
+      required: ["user_id", "type"],
+    },
+  },
+  {
+    name: "update_user_onboarding",
+    description:
+      "Asks bunq to move the onboarding on, e.g. to ACTIVE and VERIFIED after all fulfilments are  " +
+      "done. A 467 error lists the fulfilments that are still missing.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
+        onboarding_id: { type: "number", description: "ID from list_user_onboardings." },
+        user_status_desired: { type: "string", enum: ["ACTIVE"], description: "Desired user status." },
+        user_verification_status_desired: { type: "string", enum: ["VERIFIED"], description: "Desired verification status." },
+      },
+      required: ["user_id", "onboarding_id"],
+    },
+  },
+
   // ── Attachment ───────────────────────────────────────────────────────────────
   {
     name: "upload_attachment",
@@ -456,7 +650,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "ID of the provisioned user." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
         description: { type: "string", description: "Human-readable description of the file." },
         content_type: {
           type: "string",
@@ -478,7 +672,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "User ID." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
         attachment_id: { type: "number", description: "Attachment ID." },
       },
       required: ["user_id", "attachment_id"],
@@ -493,7 +687,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "ID of the user." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
         currency: { type: "string", description: "ISO-4217 currency code.", default: "EUR" },
         description: { type: "string", description: "Account display name.", default: "Main Account" },
       },
@@ -507,7 +701,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "ID of the user." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
         currency: { type: "string", description: "ISO-4217 currency code (non-EUR)." },
         service: {
           type: "string",
@@ -527,7 +721,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "User ID." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
       },
       required: ["user_id"],
     },
@@ -538,7 +732,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "User ID." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
         account_id: { type: "number", description: "Monetary account ID." },
       },
       required: ["user_id", "account_id"],
@@ -553,7 +747,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "User ID." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
         account_id: { type: "number", description: "Monetary account ID." },
         description: { type: "string", description: "New account display name." },
         daily_limit: {
@@ -581,6 +775,76 @@ export const TOOLS = [
     },
   },
 
+  {
+    name: "list_bank_accounts",
+    description:
+      "Lists the bank (MonetaryAccountBank) accounts of a user.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
+      },
+      required: ["user_id"],
+    },
+  },
+  {
+    name: "get_bank_account",
+    description:
+      "Gets one bank (MonetaryAccountBank) account of a user.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
+        account_id: { type: "number", description: "Monetary account ID." },
+      },
+      required: ["user_id", "account_id"],
+    },
+  },
+  {
+    name: "list_external_accounts",
+    description:
+      "Lists the external (e.g. Currency Cloud) accounts of a user.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
+      },
+      required: ["user_id"],
+    },
+  },
+  {
+    name: "get_external_account",
+    description:
+      "Gets one external account of a user.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
+        account_id: { type: "number", description: "Monetary account ID." },
+      },
+      required: ["user_id", "account_id"],
+    },
+  },
+  {
+    name: "update_external_account",
+    description:
+      "Updates an external account: description, daily limit, or status (cancel or reopen).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
+        account_id: { type: "number", description: "Monetary account ID." },
+        description: { type: "string", description: "New description." },
+        daily_limit: { type: "object", description: "Daily limit, e.g. {value: \"1000.00\", currency: \"EUR\"}." },
+        status: { type: "string", enum: ["ACTIVE", "CANCELLED", "PENDING_REOPEN"], description: "New status." },
+        sub_status: { type: "string", enum: ["NONE", "REDEMPTION_VOLUNTARY"], description: "Sub-status; REDEMPTION_VOLUNTARY when cancelling." },
+        reason: { type: "string", enum: ["OTHER"], description: "Reason when cancelling." },
+        reason_description: { type: "string", description: "Free-text reason when cancelling." },
+      },
+      required: ["user_id", "account_id"],
+    },
+  },
+
   // ── Payments ──────────────────────────────────────────────────────────────────
   {
     name: "create_payment",
@@ -591,7 +855,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "Sending user's ID." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
         account_id: { type: "number", description: "Source monetary account ID." },
         amount: { type: "string", description: "Amount as decimal string (e.g. '10.00')." },
         currency: { type: "string", description: "ISO-4217 currency code.", default: "EUR" },
@@ -612,7 +876,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "User ID." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
         account_id: { type: "number", description: "Monetary account ID." },
         payment_id: { type: "number", description: "Payment ID." },
       },
@@ -625,7 +889,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "User ID." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
         account_id: { type: "number", description: "Monetary account ID." },
       },
       required: ["user_id", "account_id"],
@@ -644,7 +908,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "ID of the provisioned user." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
         account_id: { type: "number", description: "Monetary account the tab collects into." },
         amount: { type: "string", description: "Amount inquired as decimal string (e.g. '10.00')." },
         currency: { type: "string", description: "ISO-4217 currency code.", default: "EUR" },
@@ -669,7 +933,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "User ID." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
         account_id: { type: "number", description: "Monetary account ID." },
         bunqme_tab_id: { type: "number", description: "bunq.me tab ID." },
       },
@@ -682,7 +946,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "User ID." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
         account_id: { type: "number", description: "Monetary account ID." },
       },
       required: ["user_id", "account_id"],
@@ -696,7 +960,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "User ID." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
         account_id: { type: "number", description: "Monetary account ID." },
         bunqme_tab_id: { type: "number", description: "bunq.me tab ID." },
         status: {
@@ -721,7 +985,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "ID of the provisioned user." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
         client_public_key: {
           type: "string",
           description: "PEM public key of the device's RSA key pair (at least 2048 bits).",
@@ -742,7 +1006,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "ID of the provisioned user." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
         device_id: { type: "number", description: "Device ID returned by register_device." },
       },
       required: ["user_id", "device_id"],
@@ -757,7 +1021,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "ID of the provisioned user." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
         device_id: { type: "number", description: "Device ID returned by register_device." },
       },
       required: ["user_id", "device_id"],
@@ -773,7 +1037,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "User ID." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
         second_line: { type: "string", description: "Second line of text on the card (max 17 chars)." },
         name_on_card: { type: "string", description: "Name as it appears on the card." },
         product_type: {
@@ -803,7 +1067,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "User ID." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
         second_line: { type: "string", description: "Second line of text on the card (max 17 chars)." },
         name_on_card: { type: "string", description: "Name as it appears on the card." },
         product_type: { type: "string", description: "Card product type (partner-specific value)." },
@@ -835,59 +1099,8 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "User ID." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
         card_id: { type: "number", description: "Card ID." },
-      },
-      required: ["user_id", "card_id"],
-    },
-  },
-  {
-    name: "list_cards",
-    description: "Lists all cards (credit and debit) for a user.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        user_id: { type: "number", description: "User ID." },
-      },
-      required: ["user_id"],
-    },
-  },
-  {
-    name: "update_card",
-    description:
-      "Updates a card's status, spending limits, or PIN. Use to activate a card after delivery, " +
-      "block/unblock it, or report it lost/stolen.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        user_id: { type: "number", description: "User ID." },
-        card_id: { type: "number", description: "Card ID." },
-        status: {
-          type: "string",
-          enum: ["ACTIVE", "DEACTIVATED", "LOST", "STOLEN", "CANCELLED"],
-          description: "New card status.",
-        },
-        card_limit: {
-          type: "object",
-          description: "Daily spending limit.",
-          properties: {
-            value: { type: "string" },
-            currency: { type: "string" },
-          },
-        },
-        card_limit_atm: {
-          type: "object",
-          description: "Daily ATM withdrawal limit.",
-          properties: {
-            value: { type: "string" },
-            currency: { type: "string" },
-          },
-        },
-        cancellation_reason: {
-          type: "string",
-          enum: ["FRAUD", "LOST", "STOLEN", "OTHER"],
-          description: "Required when status=CANCELLED.",
-        },
       },
       required: ["user_id", "card_id"],
     },
@@ -902,56 +1115,55 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "User ID." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
         card_id: { type: "number", description: "Card ID." },
       },
       required: ["user_id", "card_id"],
     },
   },
+
   {
-    name: "create_card_cvc2",
+    name: "list_challenge_requests",
     description:
-      "Generates a new CVC2 security code for a card. This is an encrypted endpoint — " +
-      "the request is end-to-end encrypted on top of TLS.",
+      "Lists the Mastercard Identity Check (3DS) challenge requests of a provisioned user. A  " +
+      "challenge appears when the user pays online with the card and must approve it.",
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "User ID." },
-        card_id: { type: "number", description: "Card ID." },
-        type: {
-          type: "string",
-          enum: ["STATIC", "GENERATED"],
-          description: "The type of CVC2 to generate.",
-        },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
+        status: { type: "string", description: "Optional filter, e.g. PENDING." },
       },
-      required: ["user_id", "card_id"],
+      required: ["user_id"],
     },
   },
   {
-    name: "list_card_cvc2",
+    name: "get_challenge_request",
     description:
-      "Lists all generated CVC2 codes for a card. This is an encrypted endpoint.",
+      "Gets one 3DS challenge request: amount, merchant, expiry and status.",
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "User ID." },
-        card_id: { type: "number", description: "Card ID." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
+        challenge_request_id: { type: "number", description: "Challenge request ID." },
       },
-      required: ["user_id", "card_id"],
+      required: ["user_id", "challenge_request_id"],
     },
   },
   {
-    name: "get_card_cvc2",
+    name: "update_challenge_request",
     description:
-      "Gets the details of a specific generated CVC2 code. This is an encrypted endpoint.",
+      "Accepts or rejects a 3DS challenge request for the user. When accepting,  " +
+      "monetary_account_id picks the account that the payment is charged from; when omitted bunq  " +
+      "picks it.",
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "User ID." },
-        card_id: { type: "number", description: "Card ID." },
-        generated_cvc2_id: { type: "number", description: "Generated CVC2 ID." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
+        challenge_request_id: { type: "number", description: "Challenge request ID." },
+        status: { type: "string", enum: ["ACCEPTED_PENDING_RESPONSE", "REJECTED_PENDING_RESPONSE"], description: "Accept or reject." },
+        monetary_account_id: { type: "number", description: "Optional account to charge when accepting." },
       },
-      required: ["user_id", "card_id", "generated_cvc2_id"],
+      required: ["user_id", "challenge_request_id", "status"],
     },
   },
 
@@ -964,7 +1176,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "ID of the provisioned user." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
         status: {
           type: "string",
           enum: ["EXPECTING_REPLY_FROM_USER", "EXPECTING_REPLY_FROM_BUNQ", "FINALIZED"],
@@ -985,7 +1197,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "User ID." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
         inquiry_id: { type: "number", description: "Inquiry ID." },
       },
       required: ["user_id", "inquiry_id"],
@@ -1000,7 +1212,7 @@ export const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        user_id: { type: "number", description: "ID of the provisioned user." },
+        user_id: { type: "number", description: DESCRIPTION_USER_ID },
         inquiry_id: { type: "number", description: "Inquiry ID." },
         entry_id: { type: "number", description: "Entry ID within the inquiry." },
         all_attachment_id: {

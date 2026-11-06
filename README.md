@@ -73,6 +73,26 @@ Ask Claude: *"Check my bunq session info"* — it should respond with your authe
 
 Always test in sandbox first. Sandbox API keys contain a `sandbox_` prefix.
 
+## Sessions for provisioned users
+
+Calls on behalf of a provisioned user (KYC, accounts, payments, cards, inquiries, freeze) must use that user's own session, not your partner session.
+
+1. When a provision is `ACTIVE`, call `create_user_session` with its `credential.token_value`.
+2. The server creates the user's installation, device and session, and keeps the session token itself. The tool returns only `user_id` and `user_api_key_id`.
+3. Pass that `user_id` to every per-user tool. The server picks the matching session. Use `user_api_key_id` only to register that user's webhooks with `set_notification_filters`.
+
+A per-user tool called before `create_user_session` fails with a message that tells you to create the session first.
+
+## Optional settings
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `BUNQ_PERSIST_STATE` | `true` for sandbox, `false` for production | Keeps the key pairs, installations and sessions in a local file, so a restart does not register a new device or lose user sessions. |
+| `BUNQ_STATE_FILE` | `~/.bunq-partner-mcp/state-<env>-<key hash>.json` | Where that file goes. It holds private keys and tokens and is written with mode `0600`. |
+| `BUNQ_TIMEOUT_MS` | `30000` | HTTP timeout per call. |
+
+The server checks the `X-Bunq-Server-Signature` of every successful response and refuses an unsigned or wrongly signed one.
+
 ## Updating
 
 When a new version is released:
@@ -86,11 +106,11 @@ npm run build
 
 Then restart Claude Desktop.
 
-## Available tools (55)
+## Available tools
 
 The full API documentation — covering auth, OAuth, user provision, onboarding & KYC, webhooks, monetary accounts, payments, devices, cards, and compliance — lives in GitBook:
 
-📚 **[Partner Onboarding API docs](https://lexy.gitbook.io/partner-onboarding-api-docs/2xC1d0lJp5ubEkda2NxQ)**
+📚 **[Partner Onboarding API docs](https://partner.doc.bunq.com/)**
 
 ## Project structure
 
@@ -98,11 +118,13 @@ The full API documentation — covering auth, OAuth, user provision, onboarding 
 partner-mcp/
 ├── src/
 │   ├── index.ts          # MCP server entry point (stdio transport)
-│   ├── bunq-client.ts    # HTTP client + auth lifecycle
+│   ├── bunq-client.ts    # HTTP client, partner and user sessions, signatures
+│   ├── state-store.ts    # Optional state file for keys and sessions
 │   ├── encryption.ts     # Application-layer request/response encryption
 │   ├── tools.ts          # Tool definitions (MCP schemas)
-│   └── handler.ts        # Tool → API call mapping
-├── test/                 # Unit tests (node:test)
+│   ├── operations.ts     # One entry per API tool: method, path, session, body
+│   └── handler.ts        # Argument checks, custom tools, operation runner
+├── test/                 # Unit tests (node:test), incl. the swagger parity test
 ├── partner-api-swagger.yaml       # Maintained OpenAPI spec
 ├── package.json
 └── tsconfig.json
@@ -110,6 +132,6 @@ partner-mcp/
 
 ## Support
 
-- 📚 [Full documentation](https://lexy.gitbook.io/partner-onboarding-api-docs/2xC1d0lJp5ubEkda2NxQ)
+- 📚 [Full documentation](https://partner.doc.bunq.com/)
 - 🐛 [Open an issue](https://github.com/bunq/partner-mcp/issues)
 - 💬 [bunq Together](https://together.bunq.com)
