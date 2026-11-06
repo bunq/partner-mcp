@@ -748,36 +748,6 @@ components:
                 type:
                   type: string
                   example: "STATIC"
-    CardGeneratedCvc2:
-      type: object
-      properties:
-        id:
-          type: integer
-          example: 42
-        created:
-          type: string
-          format: date-time
-          example: "2015-06-13 23:19:16.215235"
-        updated:
-          type: string
-          format: date-time
-          example: "2016-06-30 09:12:31.981573"
-        type:
-          type: string
-          enum: [STATIC, GENERATED]
-          example: "STATIC"
-        cvc2:
-          type: string
-          example: "123"
-        status:
-          type: string
-          enum: [AVAILABLE, USED, EXPIRED, BLOCKED]
-          example: "AVAILABLE"
-        expiry_time:
-          type: string
-          format: date-time
-          nullable: true
-          example: "2016-06-30 09:12:31.981573"
     CardPrimaryAccountNumber:
       type: object
       properties:
@@ -785,138 +755,6 @@ components:
           type: string
           description: The PAN of the card.
           example: "5412345678901234"
-    MasterCardAction:
-      type: object
-      properties:
-        id:
-          type: integer
-          example: 42
-        created:
-          type: string
-          format: date-time
-          example: "2015-06-13 23:19:16.215235"
-        updated:
-          type: string
-          format: date-time
-          example: "2015-06-30 09:12:31.981573"
-        monetary_account_id:
-          type: integer
-          example: 42
-        card_id:
-          type: integer
-          example: 15
-        amount_local:
-          type: object
-          properties:
-            value:
-              type: string
-              example: "-25.00"
-            currency:
-              type: string
-              example: "EUR"
-        amount_billing:
-          type: object
-          properties:
-            value:
-              type: string
-              example: "-25.00"
-            currency:
-              type: string
-              example: "EUR"
-        amount_original_local:
-          type: object
-          properties:
-            value:
-              type: string
-              example: "-25.00"
-            currency:
-              type: string
-              example: "EUR"
-        amount_original_billing:
-          type: object
-          properties:
-            value:
-              type: string
-              example: "-25.00"
-            currency:
-              type: string
-              example: "EUR"
-        decision:
-          type: string
-          description: Why the transaction was denied, if it was denied, or just ALLOWED.
-          example: "ALLOWED"
-        payment_status:
-          type: string
-          example: "PAYMENT_SUCCESSFUL"
-        decision_description:
-          type: string
-          description: Empty if allowed, otherwise a textual explanation of why it was denied.
-          example: ""
-        description:
-          type: string
-          example: "Groceries"
-        authorisation_status:
-          type: string
-          example: "AUTHORISED"
-        authorisation_type:
-          type: string
-          example: "PAYMENT"
-        pan_entry_mode_user:
-          type: string
-          description: "Can be ATM, ICC, MAGNETIC_STRIPE or E_COMMERCE."
-          example: "E_COMMERCE"
-        settlement_status:
-          type: string
-          example: "CLEARED"
-        clearing_status:
-          type: string
-          example: "FIRST_PRESENTMENT_COMPLETE"
-        city:
-          type: string
-          example: "Amsterdam"
-        alias:
-          type: object
-          description: The monetary account label of the account this action is created for.
-          properties:
-            iban:
-              type: string
-              example: "NL64BUNQ2106619111"
-            display_name:
-              type: string
-              example: "L. Coquille"
-        counterparty_alias:
-          type: object
-          description: The monetary account label of the counterparty.
-          properties:
-            display_name:
-              type: string
-              example: "Merchant Name"
-        label_card:
-          type: object
-          properties:
-            type:
-              type: string
-              example: "MASTERCARD"
-            second_line:
-              type: string
-              example: "Groceries"
-        merchant_id:
-          type: string
-          example: "687555537877464"
-        merchant_category_code:
-          type: string
-          example: "5411"
-        wallet_provider_id:
-          type: string
-          description: "420 = bunq Android app with Tap&Pay; 103 = Apple Pay."
-          example: "103"
-        applied_limit:
-          type: string
-          example: "CARD_LIMIT_PAYMENT"
-        additional_authentication_status:
-          type: string
-          description: The status of the additional authentication (3DS) performed by the user.
-          example: "APPROVED_BY_USER"
     MasterCardIdentityCheckChallengeRequest:
       type: object
       properties:
@@ -2100,6 +1938,141 @@ paths:
                     items:
                       $ref: '#/components/schemas/Id'
 
+  /partner-audit-transaction:
+    post:
+      tags:
+      - Partner Services
+      summary: Create Audit Transaction
+      description: |
+        Report a deposit or withdrawal that happened outside bunq for one of your provisioned users (crypto partners). bunq uses it for transaction monitoring; a high value can open a compliance inquiry.
+      security:
+      - SessionAuth: []
+      - ClientSignature: []
+      parameters:
+      - *id001
+      - *id002
+      - *id003
+      - *id004
+      - *id005
+      - *id006
+      - *id007
+      - *id008
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [external_uuid, type, reference, time_transaction, amount, balance_after_transaction, counterparty_alias]
+              properties:
+                external_uuid: {type: string, description: The external_uuid of the provisioned user.}
+                type: {type: string, enum: [DEPOSIT, WITHDRAWAL]}
+                reference: {type: string, description: Your own reference for the transaction.}
+                time_transaction: {type: string, example: "2026-11-06T10:00:00.000Z"}
+                amount:
+                  type: object
+                  properties:
+                    value: {type: string, example: "100.00"}
+                    currency: {type: string, example: EUR}
+                balance_after_transaction:
+                  type: object
+                  properties:
+                    value: {type: string, example: "100.00"}
+                    currency: {type: string, example: EUR}
+                counterparty_alias:
+                  type: object
+                  required: [type]
+                  properties:
+                    type: {type: string, enum: [IBAN, CARD], description: Where the money came from or went to.}
+                    bank_account_holder_name: {type: string, example: Jane Smith}
+                    bank_account_iban: {type: string, example: NL91ABNA0417164300}
+                    card_holder_name: {type: string, example: John Doe}
+                    card_primary_account_number_last_four_digit: {type: string, example: "1234"}
+      responses:
+        '200':
+          description: Audit transaction created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  Response:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Id'
+              example:
+                {
+                  "Response": [
+                    {
+                      "Id": {
+                        "id": 1
+                      }
+                    }
+                  ]
+                }
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /partner-audit-transaction/{auditTransactionId}:
+    get:
+      tags:
+      - Partner Services
+      summary: Get Audit Transaction
+      description: |
+        Get an audit transaction that you reported.
+      security:
+      - SessionAuth: []
+      - ClientSignature: []
+      parameters:
+      - name: auditTransactionId
+        in: path
+        required: true
+        description: Audit transaction ID.
+        schema:
+          type: integer
+      - *id001
+      - *id002
+      - *id003
+      - *id004
+      - *id005
+      - *id006
+      - *id007
+      - *id008
+      responses:
+        '200':
+          description: Audit transaction
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  Response:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        PartnerAuditTransaction:
+                          type: object
+                          properties:
+                            id: {type: integer}
+                            external_uuid: {type: string}
+                            type: {type: string, enum: [DEPOSIT, WITHDRAWAL]}
+                            reference: {type: string}
+                            amount: {type: object}
+                            balance_after_transaction: {type: object}
+                            alias: {type: object}
+                            counterparty_alias: {type: object}
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
   /user/{userId}/user-onboarding:
     post:
       tags:
@@ -2298,6 +2271,926 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/Id'
+
+  /user/{userId}/address-main:
+    post:
+      tags:
+      - User Management
+      summary: Set Main Address
+      description: |
+        Set the main (residential) address of a provisioned user. This fulfils the address step of onboarding.
+      security:
+      - SessionAuth: []
+      - ClientSignature: []
+      parameters:
+      - name: userId
+        in: path
+        required: true
+        description: ID of the provisioned user.
+        schema:
+          type: integer
+      - *id001
+      - *id002
+      - *id003
+      - *id004
+      - *id005
+      - *id006
+      - *id007
+      - *id008
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [address_main]
+              properties:
+                address_main:
+                  type: object
+                  description: The user's main address.
+                  required: [street, house_number, postal_code, city, country]
+                  properties:
+                    street: {type: string, example: "ul. Kminkowa"}
+                    house_number: {type: string, example: "110"}
+                    postal_code: {type: string, example: "80-177"}
+                    city: {type: string, example: "Gdańsk"}
+                    country: {type: string, example: "PL", description: ISO 3166-1 alpha-2 country code.}
+      responses:
+        '200':
+          description: Address saved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  Response:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Id'
+              example:
+                {
+                  "Response": [
+                    {
+                      "Id": {
+                        "id": 1
+                      }
+                    }
+                  ]
+                }
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /user/{userId}/address-postal:
+    post:
+      tags:
+      - User Management
+      summary: Set Postal Address
+      description: |
+        Set the postal address of a provisioned user, when it differs from the main address.
+      security:
+      - SessionAuth: []
+      - ClientSignature: []
+      parameters:
+      - name: userId
+        in: path
+        required: true
+        description: ID of the provisioned user.
+        schema:
+          type: integer
+      - *id001
+      - *id002
+      - *id003
+      - *id004
+      - *id005
+      - *id006
+      - *id007
+      - *id008
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [address_postal]
+              properties:
+                address_postal:
+                  type: object
+                  description: The user's postal address.
+                  required: [street, house_number, postal_code, city, country]
+                  properties:
+                    street: {type: string, example: "ul. Kminkowa"}
+                    house_number: {type: string, example: "110"}
+                    postal_code: {type: string, example: "80-177"}
+                    city: {type: string, example: "Gdańsk"}
+                    country: {type: string, example: "PL", description: ISO 3166-1 alpha-2 country code.}
+      responses:
+        '200':
+          description: Address saved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  Response:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Id'
+              example:
+                {
+                  "Response": [
+                    {
+                      "Id": {
+                        "id": 1
+                      }
+                    }
+                  ]
+                }
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /user/{userId}/tax-resident:
+    post:
+      tags:
+      - User Management
+      summary: Set Tax Residence
+      description: |
+        Set the tax residence numbers of a provisioned user, one entry per country.
+      security:
+      - SessionAuth: []
+      - ClientSignature: []
+      parameters:
+      - name: userId
+        in: path
+        required: true
+        description: ID of the provisioned user.
+        schema:
+          type: integer
+      - *id001
+      - *id002
+      - *id003
+      - *id004
+      - *id005
+      - *id006
+      - *id007
+      - *id008
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [tax_resident]
+              properties:
+                tax_resident:
+                  type: array
+                  items:
+                    type: object
+                    required: [country, tax_number]
+                    properties:
+                      country: {type: string, example: "NL", description: ISO 3166-1 alpha-2 country code.}
+                      tax_number: {type: string, example: "426702311"}
+                      status: {type: string, example: "CONFIRMED"}
+      responses:
+        '200':
+          description: Tax residence saved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  Response:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Id'
+              example:
+                {
+                  "Response": [
+                    {
+                      "Id": {
+                        "id": 1
+                      }
+                    }
+                  ]
+                }
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /user/{userId}/nationality:
+    post:
+      tags:
+      - User Management
+      summary: Set Nationalities
+      description: |
+        Set all nationalities of a provisioned user.
+      security:
+      - SessionAuth: []
+      - ClientSignature: []
+      parameters:
+      - name: userId
+        in: path
+        required: true
+        description: ID of the provisioned user.
+        schema:
+          type: integer
+      - *id001
+      - *id002
+      - *id003
+      - *id004
+      - *id005
+      - *id006
+      - *id007
+      - *id008
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [all_nationality]
+              properties:
+                all_nationality:
+                  type: array
+                  description: ISO 3166-1 alpha-2 country codes.
+                  items: {type: string}
+                  example: ["NL"]
+      responses:
+        '200':
+          description: Nationalities saved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  Response:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Id'
+              example:
+                {
+                  "Response": [
+                    {
+                      "Id": {
+                        "id": 1
+                      }
+                    }
+                  ]
+                }
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /user/{userId}/user-employment-status:
+    post:
+      tags:
+      - User Management
+      summary: Set Employment Status
+      description: |
+        Set the employment status of a provisioned user.
+      security:
+      - SessionAuth: []
+      - ClientSignature: []
+      parameters:
+      - name: userId
+        in: path
+        required: true
+        description: ID of the provisioned user.
+        schema:
+          type: integer
+      - *id001
+      - *id002
+      - *id003
+      - *id004
+      - *id005
+      - *id006
+      - *id007
+      - *id008
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [type]
+              properties:
+                type:
+                  type: string
+                  enum: [EMPLOYED, UNEMPLOYED, STUDENT, SELF_EMPLOYED, RETIRED]
+                  example: EMPLOYED
+                  description: The employment status of the user.
+      responses:
+        '200':
+          description: Employment status saved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  Response:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Id'
+              example:
+                {
+                  "Response": [
+                    {
+                      "Id": {
+                        "id": 1
+                      }
+                    }
+                  ]
+                }
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    get:
+      tags:
+      - User Management
+      summary: List Employment Status
+      description: |
+        List the employment status of a provisioned user.
+      security:
+      - SessionAuth: []
+      - ClientSignature: []
+      parameters:
+      - name: userId
+        in: path
+        required: true
+        description: ID of the provisioned user.
+        schema:
+          type: integer
+      - *id001
+      - *id002
+      - *id003
+      - *id004
+      - *id005
+      - *id006
+      - *id007
+      - *id008
+      responses:
+        '200':
+          description: Employment status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  Response:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        UserEmploymentStatus:
+                          type: object
+                          properties:
+                            id: {type: integer, example: 1}
+                            type: {type: string, example: EMPLOYED}
+                            user_id: {type: integer, example: 42}
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /user/{userId}/user-employment-status/{employmentStatusId}:
+    put:
+      tags:
+      - User Management
+      summary: Update Employment Status
+      description: |
+        Change the employment status of a provisioned user.
+      security:
+      - SessionAuth: []
+      - ClientSignature: []
+      parameters:
+      - name: userId
+        in: path
+        required: true
+        description: ID of the provisioned user.
+        schema:
+          type: integer
+      - name: employmentStatusId
+        in: path
+        required: true
+        description: ID from List Employment Status.
+        schema:
+          type: integer
+      - *id001
+      - *id002
+      - *id003
+      - *id004
+      - *id005
+      - *id006
+      - *id007
+      - *id008
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [type]
+              properties:
+                type:
+                  type: string
+                  enum: [EMPLOYED, UNEMPLOYED, STUDENT, SELF_EMPLOYED, RETIRED]
+                  example: EMPLOYED
+                  description: The employment status of the user.
+      responses:
+        '200':
+          description: Employment status updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  Response:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Id'
+              example:
+                {
+                  "Response": [
+                    {
+                      "Id": {
+                        "id": 1
+                      }
+                    }
+                  ]
+                }
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /user/{userId}/identity-verification-session:
+    post:
+      tags:
+      - User Management
+      summary: Start Identity Verification
+      description: |
+        Start an identity verification session for a provisioned user. Only the INCODE provider is supported. Read the session to get the token for the Incode SDK.
+      security:
+      - SessionAuth: []
+      - ClientSignature: []
+      parameters:
+      - name: userId
+        in: path
+        required: true
+        description: ID of the provisioned user.
+        schema:
+          type: integer
+      - *id001
+      - *id002
+      - *id003
+      - *id004
+      - *id005
+      - *id006
+      - *id007
+      - *id008
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                purpose: {type: string, example: VERIFICATION}
+                provider: {type: string, enum: [INCODE], example: INCODE}
+      responses:
+        '200':
+          description: Session created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  Response:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Id'
+              example:
+                {
+                  "Response": [
+                    {
+                      "Id": {
+                        "id": 1
+                      }
+                    }
+                  ]
+                }
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    get:
+      tags:
+      - User Management
+      summary: List Identity Verifications
+      description: |
+        List the identity verification sessions of a provisioned user.
+      security:
+      - SessionAuth: []
+      - ClientSignature: []
+      parameters:
+      - name: userId
+        in: path
+        required: true
+        description: ID of the provisioned user.
+        schema:
+          type: integer
+      - *id001
+      - *id002
+      - *id003
+      - *id004
+      - *id005
+      - *id006
+      - *id007
+      - *id008
+      responses:
+        '200':
+          description: Sessions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  Response:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        IdentityVerificationSessionIncode:
+                          type: object
+                          properties:
+                            id: {type: integer, example: 1}
+                            created: {type: string, example: "2024-01-01 12:00:00.000000"}
+                            updated: {type: string, example: "2024-01-01 12:00:00.000000"}
+                            purpose: {type: string, example: VERIFICATION}
+                            applicant_identifier_external: {type: [string, 'null']}
+                            session_identifier_external: {type: string, description: Session identifier at Incode.}
+                            country: {type: string, example: PL}
+                            status: {type: string, example: CREATED, description: "CREATED, SUBMITTED, CANCELLED, or a final result status."}
+                            token: {type: string, description: Incode session token for the SDK.}
+                            url_api: {type: string, example: "https://demo-api.incodesmile.com/0/"}
+                            should_record_session: {type: boolean, example: true}
+                            result: {type: [string, 'null']}
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /user/{userId}/identity-verification-session/{sessionId}:
+    get:
+      tags:
+      - User Management
+      summary: Get Identity Verification
+      description: |
+        Get an identity verification session, including the Incode token and status.
+      security:
+      - SessionAuth: []
+      - ClientSignature: []
+      parameters:
+      - name: userId
+        in: path
+        required: true
+        description: ID of the provisioned user.
+        schema:
+          type: integer
+      - name: sessionId
+        in: path
+        required: true
+        description: Identity verification session ID.
+        schema:
+          type: integer
+      - *id001
+      - *id002
+      - *id003
+      - *id004
+      - *id005
+      - *id006
+      - *id007
+      - *id008
+      responses:
+        '200':
+          description: Session
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  Response:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        IdentityVerificationSessionIncode:
+                          type: object
+                          properties:
+                            id: {type: integer, example: 1}
+                            created: {type: string, example: "2024-01-01 12:00:00.000000"}
+                            updated: {type: string, example: "2024-01-01 12:00:00.000000"}
+                            purpose: {type: string, example: VERIFICATION}
+                            applicant_identifier_external: {type: [string, 'null']}
+                            session_identifier_external: {type: string, description: Session identifier at Incode.}
+                            country: {type: string, example: PL}
+                            status: {type: string, example: CREATED, description: "CREATED, SUBMITTED, CANCELLED, or a final result status."}
+                            token: {type: string, description: Incode session token for the SDK.}
+                            url_api: {type: string, example: "https://demo-api.incodesmile.com/0/"}
+                            should_record_session: {type: boolean, example: true}
+                            result: {type: [string, 'null']}
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    put:
+      tags:
+      - User Management
+      summary: Submit Identity Verification
+      description: |
+        Submit (or cancel) an identity verification session after the user finished the Incode flow.
+      security:
+      - SessionAuth: []
+      - ClientSignature: []
+      parameters:
+      - name: userId
+        in: path
+        required: true
+        description: ID of the provisioned user.
+        schema:
+          type: integer
+      - name: sessionId
+        in: path
+        required: true
+        description: Identity verification session ID.
+        schema:
+          type: integer
+      - *id001
+      - *id002
+      - *id003
+      - *id004
+      - *id005
+      - *id006
+      - *id007
+      - *id008
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: {type: string, enum: [SUBMITTED, CANCELLED], example: SUBMITTED}
+      responses:
+        '200':
+          description: Session updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  Response:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Id'
+              example:
+                {
+                  "Response": [
+                    {
+                      "Id": {
+                        "id": 1
+                      }
+                    }
+                  ]
+                }
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /user/{userId}/document-identification:
+    post:
+      tags:
+      - User Management
+      summary: Link Identification Document
+      description: |
+        Link an uploaded identification document (attachment) to a provisioned user.
+      security:
+      - SessionAuth: []
+      - ClientSignature: []
+      parameters:
+      - name: userId
+        in: path
+        required: true
+        description: ID of the provisioned user.
+        schema:
+          type: integer
+      - *id001
+      - *id002
+      - *id003
+      - *id004
+      - *id005
+      - *id006
+      - *id007
+      - *id008
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [document_type, document_country_of_issuance, document_attachment_id]
+              properties:
+                document_type: {type: string, example: PASSPORT}
+                document_country_of_issuance: {type: string, example: NL}
+                document_attachment_id: {type: integer, example: 31, description: Attachment ID of the front side.}
+                document_back_attachment_id: {type: integer, example: 32, description: Attachment ID of the back side, if any.}
+                document_number: {type: string, example: "0284193813"}
+                document_expiry_date: {type: string, example: "2030-03-10"}
+      responses:
+        '200':
+          description: Document linked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  Response:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Id'
+              example:
+                {
+                  "Response": [
+                    {
+                      "Id": {
+                        "id": 1
+                      }
+                    }
+                  ]
+                }
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /user-person/{userId}:
+    get:
+      tags:
+      - User Management
+      summary: Get User Person
+      description: |
+        Get the personal details and status of a provisioned user.
+      security:
+      - SessionAuth: []
+      - ClientSignature: []
+      parameters:
+      - name: userId
+        in: path
+        required: true
+        description: ID of the provisioned user.
+        schema:
+          type: integer
+      - *id001
+      - *id002
+      - *id003
+      - *id004
+      - *id005
+      - *id006
+      - *id007
+      - *id008
+      responses:
+        '200':
+          description: User
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  Response:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        UserPerson:
+                          type: object
+                          description: The provisioned user. Only the fields partners use most are listed.
+                          properties:
+                            id: {type: integer, example: 1}
+                            status: {type: string, example: ACTIVE}
+                            sub_status: {type: string, example: NONE}
+                            public_uuid: {type: string}
+                            first_name: {type: string, example: Victor}
+                            middle_name: {type: string}
+                            last_name: {type: string, example: Polanda}
+                            display_name: {type: string, example: V. Polanda}
+                            date_of_birth: {type: string, example: "1984-12-12"}
+                            all_nationality: {type: array, items: {type: string}}
+                            address_main: {type: object}
+                            address_postal: {type: object}
+                            tax_resident: {type: array, items: {type: object}}
+                            verification_status: {type: string, example: VERIFIED}
+                            freeze_user: {type: [object, 'null']}
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    put:
+      tags:
+      - User Management
+      summary: Update User Person
+      description: |
+        Set the name and date of birth of a provisioned user.
+      security:
+      - SessionAuth: []
+      - ClientSignature: []
+      parameters:
+      - name: userId
+        in: path
+        required: true
+        description: ID of the provisioned user.
+        schema:
+          type: integer
+      - *id001
+      - *id002
+      - *id003
+      - *id004
+      - *id005
+      - *id006
+      - *id007
+      - *id008
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                first_name: {type: string, example: Victor}
+                middle_name: {type: string, example: Polish}
+                last_name: {type: string, example: Polanda}
+                date_of_birth: {type: string, example: "1984-12-12", description: ISO 8601 date.}
+      responses:
+        '200':
+          description: User updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  Response:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Id'
+              example:
+                {
+                  "Response": [
+                    {
+                      "Id": {
+                        "id": 1
+                      }
+                    }
+                  ]
+                }
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /user/{userId}/freeze:
     post:
@@ -2794,59 +3687,6 @@ paths:
                         CardDebit:
                           $ref: '#/components/schemas/Card'
 
-  /user/{userId}/card:
-    get:
-      tags:
-      - Card Management
-      summary: List Cards
-      x-bunq-encryption-required: true
-      description: |
-        🔒 **Encrypted endpoint** — the response is end-to-end encrypted. See the Encryption section.
-
-        Get all cards (credit and debit) available to the user.
-      security:
-      - SessionAuth: []
-      - ClientSignature: []
-      parameters:
-      - name: userId
-        in: path
-        required: true
-        schema:
-          type: integer
-      - *id001
-      - *id002
-      - *id003
-      - *id004
-      - *id005
-      - *id006
-      - *id007
-      - *id008
-      - $ref: '#/components/parameters/BunqClientEncryptionIv'
-      - $ref: '#/components/parameters/BunqClientEncryptionKey'
-      - $ref: '#/components/parameters/BunqClientEncryptionHmac'
-      responses:
-        '200':
-          description: List of all user cards
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  Response:
-                    type: array
-                    items:
-                      oneOf:
-                      - type: object
-                        properties:
-                          CardCredit:
-                            $ref: '#/components/schemas/Card'
-                      - type: object
-                        properties:
-                          CardDebit:
-                            $ref: '#/components/schemas/Card'
-                  Pagination:
-                    $ref: '#/components/schemas/Pagination'
-
   /user/{userId}/card/{cardId}:
     get:
       tags:
@@ -2902,118 +3742,6 @@ paths:
                         properties:
                           CardDebit:
                             $ref: '#/components/schemas/Card'
-    put:
-      tags:
-      - Card Management
-      summary: Update Card
-      x-bunq-encryption-required: true
-      description: |
-        🔒 **Encrypted endpoint** — the request body and response are end-to-end encrypted. See the Encryption section.
-
-        Update card details including PIN code, status, limits, and settings.
-        Can be used to activate cards when they are received.
-      security:
-      - SessionAuth: []
-      - ClientSignature: []
-      parameters:
-      - name: userId
-        in: path
-        required: true
-        schema:
-          type: integer
-      - name: cardId
-        in: path
-        required: true
-        schema:
-          type: integer
-      - *id001
-      - *id002
-      - *id003
-      - *id004
-      - *id005
-      - *id006
-      - *id007
-      - *id008
-      - $ref: '#/components/parameters/BunqClientEncryptionIv'
-      - $ref: '#/components/parameters/BunqClientEncryptionKey'
-      - $ref: '#/components/parameters/BunqClientEncryptionHmac'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                pin_code:
-                  type: string
-                  description: The plaintext PIN code (requires encryption)
-                  example: "0461"
-                status:
-                  type: string
-                  enum: [ACTIVE, DEACTIVATED, LOST, STOLEN, CANCELLED]
-                  example: "ACTIVE"
-                  description: |
-                    Card status to set:
-                    - `ACTIVE`: Activate the card
-                    - `DEACTIVATED`: Temporarily deactivate the card
-                    - `LOST`: Report card as lost (permanent)
-                    - `STOLEN`: Report card as stolen (permanent)
-                    - `CANCELLED`: Cancel the card (permanent)
-                card_limit:
-                  type: object
-                  description: Daily spending limit for the card
-                  properties:
-                    value:
-                      type: string
-                      example: "1000.00"
-                    currency:
-                      type: string
-                      example: "EUR"
-                card_limit_atm:
-                  type: object
-                  description: Daily ATM withdrawal limit
-                  properties:
-                    value:
-                      type: string
-                      example: "500.00"
-                    currency:
-                      type: string
-                      example: "EUR"
-                monetary_account_id_fallback:
-                  type: integer
-                  description: ID of fallback account for insufficient balance
-                  example: 42
-                cancellation_reason:
-                  type: string
-                  enum: [FRAUD, LOST, STOLEN, OTHER]
-                  example: "LOST"
-                  description: |
-                    Reason for cancelling card:
-                    - `FRAUD`: Fraudulent activity detected
-                    - `LOST`: Card has been lost
-                    - `STOLEN`: Card has been stolen
-                    - `OTHER`: Other reason
-      responses:
-        '200':
-          description: Card updated successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  Response:
-                    type: array
-                    items:
-                      oneOf:
-                      - type: object
-                        properties:
-                          CardCredit:
-                            $ref: '#/components/schemas/Card'
-                      - type: object
-                        properties:
-                          CardDebit:
-                            $ref: '#/components/schemas/Card'
-
   /user/{userId}/card/{cardId}/primary-account-number:
     post:
       tags:
@@ -3064,338 +3792,6 @@ paths:
                       properties:
                         CardPrimaryAccountNumber:
                           $ref: '#/components/schemas/CardPrimaryAccountNumber'
-
-  /user/{userId}/card/{cardId}/generated-cvc2:
-    post:
-      tags:
-      - Card Management
-      summary: Create Generated CVC2
-      x-bunq-encryption-required: true
-      description: |
-        🔒 **Encrypted endpoint** — the request body and response are end-to-end encrypted. See the Encryption section.
-
-        Generate a new CVC2 code for a card.
-      security:
-      - SessionAuth: []
-      - ClientSignature: []
-      parameters:
-      - name: userId
-        in: path
-        required: true
-        schema:
-          type: integer
-      - name: cardId
-        in: path
-        required: true
-        schema:
-          type: integer
-      - *id001
-      - *id002
-      - *id003
-      - *id004
-      - *id005
-      - *id006
-      - *id007
-      - *id008
-      - $ref: '#/components/parameters/BunqClientEncryptionIv'
-      - $ref: '#/components/parameters/BunqClientEncryptionKey'
-      - $ref: '#/components/parameters/BunqClientEncryptionHmac'
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                type:
-                  type: string
-                  enum: [STATIC, GENERATED]
-                  example: "STATIC"
-                  description: The type of generated CVC2.
-      responses:
-        '200':
-          description: Generated CVC2 created successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  Response:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        CardGeneratedCvc2:
-                          $ref: '#/components/schemas/CardGeneratedCvc2'
-    get:
-      tags:
-      - Card Management
-      summary: List Generated CVC2
-      x-bunq-encryption-required: true
-      description: |
-        🔒 **Encrypted endpoint** — the response is end-to-end encrypted. See the Encryption section.
-
-        Get all generated CVC2 codes for a card.
-      security:
-      - SessionAuth: []
-      - ClientSignature: []
-      parameters:
-      - name: userId
-        in: path
-        required: true
-        schema:
-          type: integer
-      - name: cardId
-        in: path
-        required: true
-        schema:
-          type: integer
-      - *id001
-      - *id002
-      - *id003
-      - *id004
-      - *id005
-      - *id006
-      - *id007
-      - *id008
-      - $ref: '#/components/parameters/BunqClientEncryptionIv'
-      - $ref: '#/components/parameters/BunqClientEncryptionKey'
-      - $ref: '#/components/parameters/BunqClientEncryptionHmac'
-      responses:
-        '200':
-          description: List of generated CVC2 codes
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  Response:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        CardGeneratedCvc2:
-                          $ref: '#/components/schemas/CardGeneratedCvc2'
-                  Pagination:
-                    $ref: '#/components/schemas/Pagination'
-
-  /user/{userId}/card/{cardId}/generated-cvc2/{generatedCvc2Id}:
-    get:
-      tags:
-      - Card Management
-      summary: Get Generated CVC2 Details
-      x-bunq-encryption-required: true
-      description: |
-        🔒 **Encrypted endpoint** — the response is end-to-end encrypted. See the Encryption section.
-
-        Get the details for a specific generated CVC2 code.
-      security:
-      - SessionAuth: []
-      - ClientSignature: []
-      parameters:
-      - name: userId
-        in: path
-        required: true
-        schema:
-          type: integer
-      - name: cardId
-        in: path
-        required: true
-        schema:
-          type: integer
-      - name: generatedCvc2Id
-        in: path
-        required: true
-        schema:
-          type: integer
-      - *id001
-      - *id002
-      - *id003
-      - *id004
-      - *id005
-      - *id006
-      - *id007
-      - *id008
-      - $ref: '#/components/parameters/BunqClientEncryptionIv'
-      - $ref: '#/components/parameters/BunqClientEncryptionKey'
-      - $ref: '#/components/parameters/BunqClientEncryptionHmac'
-      responses:
-        '200':
-          description: Generated CVC2 details
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  Response:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        CardGeneratedCvc2:
-                          $ref: '#/components/schemas/CardGeneratedCvc2'
-    put:
-      tags:
-      - Card Management
-      summary: Update Generated CVC2
-      x-bunq-encryption-required: true
-      description: |
-        🔒 **Encrypted endpoint** — the request body and response are end-to-end encrypted. See the Encryption section.
-
-        Update a generated CVC2 code for a card.
-      security:
-      - SessionAuth: []
-      - ClientSignature: []
-      parameters:
-      - name: userId
-        in: path
-        required: true
-        schema:
-          type: integer
-      - name: cardId
-        in: path
-        required: true
-        schema:
-          type: integer
-      - name: generatedCvc2Id
-        in: path
-        required: true
-        schema:
-          type: integer
-      - *id001
-      - *id002
-      - *id003
-      - *id004
-      - *id005
-      - *id006
-      - *id007
-      - *id008
-      - $ref: '#/components/parameters/BunqClientEncryptionIv'
-      - $ref: '#/components/parameters/BunqClientEncryptionKey'
-      - $ref: '#/components/parameters/BunqClientEncryptionHmac'
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                type:
-                  type: string
-                  enum: [STATIC, GENERATED]
-                  example: "STATIC"
-                  description: The type of generated CVC2.
-      responses:
-        '200':
-          description: Generated CVC2 updated successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  Response:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        CardGeneratedCvc2:
-                          $ref: '#/components/schemas/CardGeneratedCvc2'
-
-  /user/{userId}/monetary-account/{accountId}/mastercard-action:
-    get:
-      tags:
-      - Card Management
-      summary: List Mastercard Actions
-      description: |
-        List the card transactions (Mastercard actions) for a monetary account.
-      security:
-      - SessionAuth: []
-      - ClientSignature: []
-      parameters:
-      - name: userId
-        in: path
-        required: true
-        schema:
-          type: integer
-      - name: accountId
-        in: path
-        required: true
-        schema:
-          type: integer
-      - *id001
-      - *id002
-      - *id003
-      - *id004
-      - *id005
-      - *id006
-      - *id007
-      - *id008
-      responses:
-        '200':
-          description: List of card transactions
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  Response:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        MasterCardAction:
-                          $ref: '#/components/schemas/MasterCardAction'
-                  Pagination:
-                    $ref: '#/components/schemas/Pagination'
-
-  /user/{userId}/monetary-account/{accountId}/mastercard-action/{mastercardActionId}:
-    get:
-      tags:
-      - Card Management
-      summary: Get Mastercard Action Details
-      description: Get the details of a specific card transaction.
-      security:
-      - SessionAuth: []
-      - ClientSignature: []
-      parameters:
-      - name: userId
-        in: path
-        required: true
-        schema:
-          type: integer
-      - name: accountId
-        in: path
-        required: true
-        schema:
-          type: integer
-      - name: mastercardActionId
-        in: path
-        required: true
-        schema:
-          type: integer
-      - *id001
-      - *id002
-      - *id003
-      - *id004
-      - *id005
-      - *id006
-      - *id007
-      - *id008
-      responses:
-        '200':
-          description: Card transaction details
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  Response:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        MasterCardAction:
-                          $ref: '#/components/schemas/MasterCardAction'
 
   /user/{userId}/challenge-request:
     get:
@@ -4051,6 +4447,112 @@ paths:
                       longitude: 4.9041
                       altitude: 0
                       radius: 0
+
+  /user/{userId}/monetary-account:
+    get:
+      tags:
+      - Account Management
+      summary: List Monetary Accounts
+      description: |
+        List all monetary accounts of a user, of every type.
+      security:
+      - SessionAuth: []
+      - ClientSignature: []
+      parameters:
+      - name: userId
+        in: path
+        required: true
+        description: ID of the provisioned user, or your own user ID.
+        schema:
+          type: integer
+      - *id001
+      - *id002
+      - *id003
+      - *id004
+      - *id005
+      - *id006
+      - *id007
+      - *id008
+      responses:
+        '200':
+          description: Accounts
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  Response:
+                    type: array
+                    description: Each item holds one account under its type name.
+                    items:
+                      type: object
+                      properties:
+                        MonetaryAccountBank:
+                          $ref: '#/components/schemas/MonetaryAccountBank'
+                        MonetaryAccountExternal:
+                          $ref: '#/components/schemas/MonetaryAccountExternal'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /user/{userId}/monetary-account/{accountId}:
+    get:
+      tags:
+      - Account Management
+      summary: Get Monetary Account
+      description: |
+        Get one monetary account of a user, of any type.
+      security:
+      - SessionAuth: []
+      - ClientSignature: []
+      parameters:
+      - name: userId
+        in: path
+        required: true
+        description: ID of the provisioned user, or your own user ID.
+        schema:
+          type: integer
+      - name: accountId
+        in: path
+        required: true
+        description: Monetary account ID.
+        schema:
+          type: integer
+      - *id001
+      - *id002
+      - *id003
+      - *id004
+      - *id005
+      - *id006
+      - *id007
+      - *id008
+      responses:
+        '200':
+          description: Account
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  Response:
+                    type: array
+                    description: Each item holds one account under its type name.
+                    items:
+                      type: object
+                      properties:
+                        MonetaryAccountBank:
+                          $ref: '#/components/schemas/MonetaryAccountBank'
+                        MonetaryAccountExternal:
+                          $ref: '#/components/schemas/MonetaryAccountExternal'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /user/{userId}/monetary-account-bank:
     post:

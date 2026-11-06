@@ -168,3 +168,11 @@ test("state file of another API key is not reused", async () => {
 
   assert.equal(other.fake.callsTo("/v1/installation").length, 1);
 });
+
+test("an encrypted GET sends no body", async () => {
+  const { client, fake } = createClient();
+
+  await client.callForUser(PARTNER_USER_ID, "GET", "/user/100/card/1", null, true);
+
+  assert.equal(fake.allCall.at(-1)!.body.length, 0);
+});
